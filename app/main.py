@@ -16,6 +16,19 @@ if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET or not GOOGLE_REDIRECT_URI:
 
 app = FastAPI()
 
+from datetime import date as date_type
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from .db import engine, get_db
+from .models import Event
+from .schemas import EventCreate, EventOut
+
+# vytvoří tabulky (MVP jednoduché). Později přejdeme na Alembic migrace.
+Event.metadata.create_all(bind=engine)
+
+
+
 # Session cookie encryption key (dev only). Later we’ll put this into .env too.
 app.add_middleware(SessionMiddleware, secret_key="dev-secret-change-me")
 
@@ -53,3 +66,31 @@ async def auth_me(request: Request):
 async def auth_logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/")
+
+@app.get("/events", response_model=list[EventOut])
+def list_events(from_date: date_type, to_date: date_type, db: Session = Depends(get_db)):
+    return (
+        db.query(Event)
+        .filter(Event.date >= from_date, Event.date <= to_date)
+        .order_by(Event.date.asc())
+        .all()
+    )
+
+
+@app.post("/events", response_model=EventOut)
+def create_event(payload: EventCreate, db: Session = Depends(get_db)):
+    # jednoduchá validace: pokud je time_end bez time_start, necháme to projít (MVP),
+    # ale časově to budeš typicky vyplňovat oba.
+    ev = Event(
+        title=payload.title,
+        date=payload.date,
+        time_start=payload.time_start,
+        time_end=payload.time_end,
+        location=payload.location,
+        public_description=payload.public_description,
+        internal_notes=payload.internal_notes,
+    )
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return ev

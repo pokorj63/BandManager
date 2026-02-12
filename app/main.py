@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from dotenv import load_dotenv
 from authlib.integrations.starlette_client import OAuth
@@ -30,33 +30,26 @@ oauth.register(
     },
 )
 
-@app.get("/")
-def root():
-    return {"status": "ok", "app": "bandmanager"}
-
 @app.get("/auth/google/login")
-async def google_login(request):
-    # redirects the user to Google’s login/consent screen
+async def google_login(request: Request):
     return await oauth.google.authorize_redirect(request, GOOGLE_REDIRECT_URI)
 
 @app.get("/auth/google/callback")
-async def google_callback(request):
-    # exchange code for tokens
+async def google_callback(request: Request):
     token = await oauth.google.authorize_access_token(request)
     user = token.get("userinfo")
-    # store token in session for now (dev). Later: DB + refresh token.
     request.session["token"] = token
     request.session["user"] = user
     return JSONResponse({"logged_in": True, "user": user})
 
 @app.get("/auth/me")
-async def auth_me(request):
+async def auth_me(request: Request):
     user = request.session.get("user")
     if not user:
         return JSONResponse({"logged_in": False}, status_code=401)
     return JSONResponse({"logged_in": True, "user": user})
 
 @app.get("/auth/logout")
-async def auth_logout(request):
+async def auth_logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/")

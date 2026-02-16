@@ -25,6 +25,9 @@ class EventOut(BaseModel):
     location: str | None
     public_description: str | None
     internal_notes: str | None
+    
+    calendar_event_id: str | None
+    drive_folder_id: str | None
 
     class Config:
         from_attributes = True

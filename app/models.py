@@ -19,3 +19,5 @@ class Event(Base):
 
     public_description: Mapped[str | None] = mapped_column(Text, nullable=True)   # jde do Google Calendar (později)
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)       # jen v appce
+    calendar_event_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    drive_folder_id: Mapped[str | None] = mapped_column(String(200), nullable=True)

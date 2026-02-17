@@ -1,18 +1,19 @@
 import os
 import secrets
 import time
-from fastapi import FastAPI, Request, HTTPException
+import calendar as calmod
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
 from dotenv import load_dotenv
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from .google_client import get_credentials_from_session, calendar_service, drive_service
-from datetime import date as date_type
+from datetime import date, timedelta
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from .db import engine, get_db
 from .models import Event
-from .schemas import EventCreate, EventOut
+from .schemas import EventCreate, EventOut, EventUpdate
 from .token_store import TOKENS
 
 load_dotenv()
@@ -47,6 +48,17 @@ oauth.register(
         "scope": "openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive",
     },
 )
+
+
+def require_token(request: Request) -> dict:
+    sid = request.session.get("sid")
+    if not sid or sid not in TOKENS:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    return TOKENS[sid]["token"]
+
+
+
+
 @app.get("/")
 def root():
     return {"status": "ok"}
@@ -106,14 +118,30 @@ async def auth_logout(request: Request):
     return resp
 
 @app.get("/events", response_model=list[EventOut])
-def list_events(from_date: date_type, to_date: date_type, db: Session = Depends(get_db)):
+def list_events(from_date: date, to_date: date, db: Session = Depends(get_db)):
     return (
         db.query(Event)
         .filter(Event.date >= from_date, Event.date <= to_date)
         .order_by(Event.date.asc())
         .all()
     )
-
+@app.get("/events/month", response_model=list[EventOut])
+def list_events_month(year: int, month: int, db: Session = Depends(get_db)):
+    last_day = calmod.monthrange(year, month)[1]
+    from_date = date(year, month, 1)
+    to_date = date(year, month, last_day)
+    return (
+        db.query(Event)
+        .filter(Event.date >= from_date, Event.date <= to_date)
+        .order_by(Event.date.asc())
+        .all()
+    )
+@app.get("/events/{event_id}", response_model=EventOut)
+def get_event(event_id: int, db: Session = Depends(get_db)):
+    ev = db.query(Event).filter(Event.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return ev
 
 @app.post("/events", response_model=EventOut)
 def create_event(payload: EventCreate, request: Request, db: Session = Depends(get_db)):
@@ -149,10 +177,12 @@ def create_event(payload: EventCreate, request: Request, db: Session = Depends(g
 
     # 1) Create Calendar event (all-day if no time_start)
     if ev.time_start is None:
+        end_date = (ev.date + timedelta(days=1)).isoformat()
+        
         body = {
-             "summary": ev.title,
+            "summary": ev.title,
             "start": {"date": ev.date.isoformat()},
-            "end": {"date": ev.date.isoformat()},
+            "end": {"date": end_date},
             "description": ev.public_description or "",
             "location": ev.location or "",
         }
@@ -208,3 +238,69 @@ def create_event(payload: EventCreate, request: Request, db: Session = Depends(g
 @app.get("/debug/session")
 def debug_session(request: Request):
     return {"session": dict(request.session)}
+
+@app.patch("/events/{event_id}", response_model=EventOut)
+def update_event(event_id: int, payload: EventUpdate, request: Request, db: Session = Depends(get_db)):
+    ev = db.query(Event).filter(Event.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # apply DB changes
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(ev, field, value)
+
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+
+    # sync to Google (best-effort)
+    token = require_token(request)
+    creds = get_credentials_from_session(token)
+    cal = calendar_service(creds)
+
+    calendar_id = os.getenv("BAND_CALENDAR_ID")
+    if calendar_id and ev.calendar_event_id:
+        if ev.time_start is None:
+            body = {
+                "summary": ev.title,
+                "start": {"date": ev.date.isoformat()},
+                "end": {"date": (ev.date + timedelta(days=1)).isoformat()},
+                "description": ev.public_description or "",
+                "location": ev.location or "",
+            }
+        else:
+            body = {
+                "summary": ev.title,
+                "start": {"dateTime": f"{ev.date.isoformat()}T{ev.time_start.isoformat()}"},
+                "end": {"dateTime": f"{ev.date.isoformat()}T{(ev.time_end or ev.time_start).isoformat()}"},
+                "description": ev.public_description or "",
+                "location": ev.location or "",
+            }
+
+        cal.events().patch(calendarId=calendar_id, eventId=ev.calendar_event_id, body=body).execute()
+
+    return ev
+
+@app.delete("/events/{event_id}")
+def delete_event(event_id: int, request: Request, db: Session = Depends(get_db)):
+    ev = db.query(Event).filter(Event.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # delete in Google (best-effort)
+    token = require_token(request)
+    creds = get_credentials_from_session(token)
+    cal = calendar_service(creds)
+
+    calendar_id = os.getenv("BAND_CALENDAR_ID")
+    if calendar_id and ev.calendar_event_id:
+        try:
+            cal.events().delete(calendarId=calendar_id, eventId=ev.calendar_event_id).execute()
+        except Exception:
+            # MVP: nechceme kvůli tomu blokovat smazání v appce
+            pass
+
+    # Drive: defaultně nemažu (bezpečnější). Později dáme "trash".
+    db.delete(ev)
+    db.commit()
+    return {"deleted": True, "id": event_id}

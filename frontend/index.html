@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BandManager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div id="app" class="app-container">
+        <!-- Vizuální pozadí (glowing orbs) -->
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+
+        <!-- Přihlašovací obrazovka (pokud nejsme přihlášeni) -->
+        <div id="login-view" class="view panel glass hidden">
+            <div class="logo-box">
+                <span class="icon">🎸</span>
+                <h1>BandManager</h1>
+                <p>Tvůj ultimátní kapelní ekosystém</p>
+            </div>
+            <a href="/auth/google/login" class="btn btn-primary btn-large">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google">
+                Přihlásit se kapelním účtem
+            </a>
+        </div>
+
+        <!-- Hlavní aplikační obrazovka -->
+        <div id="dashboard-view" class="dashboard hidden">
+            <!-- Boční panel (Sidebar) -->
+            <nav class="sidebar glass">
+                <div class="brand" style="cursor: pointer;"
+                    onclick="document.querySelector('a[data-target=welcome]') ? document.querySelector('a[data-target=welcome]').click() : showWelcome()">
+                    <span class="icon">🎸</span>
+                    <h2>BandManager</h2>
+                </div>
+
+                <ul class="nav-links">
+                    <li class="hidden"><a href="#" data-target="welcome"><span class="icon">🏠</span> Domů</a></li>
+                    <li><a href="#" data-target="musicarchivator"><span class="icon">🎵</span> MusicArchivator</a></li>
+                    <li><a href="#" data-target="playlistmaker"><span class="icon">📋</span> PlaylistMaker</a></li>
+                    <li><a href="#" data-target="eventplaner"><span class="icon">📅</span> EventPlaner</a></li>
+                </ul>
+
+                <div class="user-profile">
+                    <img id="user-avatar" src="" alt="Avatar">
+                    <div class="user-info">
+                        <span id="user-name">Uživatel</span>
+                        <a href="/auth/logout" class="logout">Odhlásit se</a>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Hlavní obsah -->
+            <main class="main-content">
+
+                <!-- Domovská sekce -->
+                <section id="welcome" class="content-section glass">
+                    <header class="section-header">
+                        <h2>Vítej v BandManageru!</h2>
+                        <p>Zvol si z menu vlevo nástroj, se kterým chceš pracovat.</p>
+                    </header>
+                    <div class="card-grid">
+                        <div class="feature-card"
+                            onclick="document.querySelector('a[data-target=musicarchivator]').click()">
+                            <div class="card-icon">🎵</div>
+                            <h3>MusicArchivator</h3>
+                            <p>Knihovník. Pořádek v notách a midi formátech, chytře roztříděný archiv skladeb.</p>
+                        </div>
+                        <div class="feature-card"
+                            onclick="document.querySelector('a[data-target=playlistmaker]').click()">
+                            <div class="card-icon">📋</div>
+                            <h3>PlaylistMaker</h3>
+                            <p>Dramaturg. Skládej z písní dokonalé setlisty s funkcí pro výpočet času.</p>
+                        </div>
+                        <div class="feature-card"
+                            onclick="document.querySelector('a[data-target=eventplaner]').click()">
+                            <div class="card-icon">�</div>
+                            <h3>EventPlaner</h3>
+                            <p>Manažer. Plánuj koncerty, sdílej fotky a tvoř fotogalerie s napojením na Google Drive a
+                                Kalendář.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- EventPlaner -->
+                <section id="eventplaner" class="content-section glass hidden">
+                    <header class="section-header flex-header">
+                        <div>
+                            <h2>EventPlaner <button class="btn-help"
+                                    onclick="window.showMirek('Toto je tvůj EventPlaner. Zde uvidíš všechny nadcházející koncerty, můžeš přidávat nové nebo synchronizovat stávající s Google Kalendářem. Po rozkliknutí detailu najdeš možnost připojit playlist nebo řešit záskoky.')"
+                                    title="Nápověda">?</button></h2>
+                            <p>Tvé nastávající koncerty. Napojeno na Google Kalendář a Disk.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="btn-sync-events" class="btn btn-secondary">🔄 Synch S Kalendářem</button>
+                            <button id="btn-show-add-event" class="btn btn-primary">+ Přidat událost</button>
+                        </div>
+                    </header>
+
+                    <div id="add-event-form" class="form-container glass hidden">
+                        <!-- form content unchanged until the button -->
+                        <h3>Nová událost</h3>
+                        <form id="form-event">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Název (Koncert, Město)</label>
+                                    <input type="text" id="event-title" required placeholder="Např. Letní festival">
+                                </div>
+                                <div class="form-group">
+                                    <label>Datum</label>
+                                    <input type="date" id="event-date" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Začátek (volitelně)</label>
+                                    <input type="time" id="event-time-start">
+                                </div>
+                                <div class="form-group">
+                                    <label>Konec (volitelně)</label>
+                                    <input type="time" id="event-time-end">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Místo (Adresa)</label>
+                                <input type="text" id="event-location" placeholder="Kde se hraje?">
+                            </div>
+                            <div class="form-group">
+                                <label>Popis pro fanoušky (do Google Kalendáře)</label>
+                                <textarea id="event-public-desc" rows="2"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Interní poznámky kapely (Přejezdy, co vzít)</label>
+                                <textarea id="event-internal-notes" rows="2"></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" id="btn-cancel-add-event" class="btn">Zrušit</button>
+                                <button type="submit" class="btn btn-primary">Uložit událost</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="content-body">
+                        <div class="date-controls" style="margin-bottom: 20px;">
+                            <button class="btn" id="btn-prev-month">◄</button>
+                            <h3 id="current-month-label">Září 2026</h3>
+                            <button class="btn" id="btn-next-month">►</button>
+                        </div>
+
+                        <!-- Kalendář Modul -->
+                        <div class="calendar-wrapper glass">
+                            <div class="calendar-header-days">
+                                <div>Po</div>
+                                <div>Út</div>
+                                <div>St</div>
+                                <div>Čt</div>
+                                <div>Pá</div>
+                                <div>So</div>
+                                <div>Ne</div>
+                            </div>
+                            <div id="calendar-grid" class="calendar-grid">
+                                <!-- Generováno z JS -->
+                            </div>
+                        </div>
+
+                        <!-- Inline Detail události (skrytý) -->
+                        <div id="event-detail-view" class="form-container glass hidden" style="position: relative;">
+                            <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
+                                <button id="btn-delete-event" class="btn btn-secondary"
+                                    style="border-color: #ef4444; color: #ef4444;">✖ Smazat událost</button>
+                                <button id="close-detail" class="btn">✖ Zavřít</button>
+                            </div>
+                            <div class="detail-grid">
+                                <!-- Levej sloupec -->
+                                <div class="detail-left">
+                                    <h2 id="detail-title" style="font-size: 3rem; margin-bottom: 5px; line-height: 1;">
+                                        Název</h2>
+                                    <p id="detail-date" style="font-size: 1.2rem; margin-bottom: 2px;">datum</p>
+                                    <p id="detail-location" style="font-size: 1.2rem; margin-bottom: 30px;">místo</p>
+
+                                    <div class="detail-box"
+                                        style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 120px;">
+                                        <p style="color: var(--text-muted); margin-bottom: 5px;">Zatím nebyl nahrán
+                                            playlist pro tento koncert.</p>
+                                        <div style="display: flex; gap: 10px;">
+                                            <label class="btn btn-secondary">
+                                                Nahrát z PC (PDF)
+                                                <input type="file" id="upload-pdf-input" style="display: none;"
+                                                    accept="application/pdf">
+                                            </label>
+                                            <button class="btn btn-primary" id="btn-create-playlist-link">Vytvořit
+                                                v PlaylistMakeru</button>
+                                        </div>
+                                    </div>
+
+                                    <button class="btn btn-large big-action-btn" id="btn-trigger-media-upload"
+                                        style="margin-top: auto;">
+                                        Upload Fotek/Videí
+                                    </button>
+                                    <input type="file" id="upload-media-input" style="display: none;" multiple
+                                        accept="image/*,video/*">
+                                </div>
+
+                                <!-- Pravej sloupec -->
+                                <div class="detail-right">
+                                    <h4 class="detail-heading">poznámky pro kapelu</h4>
+                                    <div id="detail-public-desc" class="detail-box"></div>
+
+                                    <h4 class="detail-heading">poznámky pro mě</h4>
+                                    <div id="detail-internal-notes" class="detail-box"></div>
+
+                                    <h4 class="detail-heading">Záskoky</h4>
+                                    <ul id="zaskoky-list" class="zaskoky-list-inline">
+                                        <!-- Generováno z JS -->
+                                    </ul>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <input type="text" id="add-zaskok-input" placeholder="Nástroj (Basa, Zpěv...)"
+                                            style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px; color: #fff; flex: 1;">
+                                        <button id="add-zaskok-btn" class="btn btn-secondary">+ přidat</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- MusicArchivator -->
+                <section id="musicarchivator" class="content-section glass hidden">
+                    <header class="section-header">
+                        <h2>MusicArchivator <button class="btn-help"
+                                onclick="window.showMirek('MusicArchivator je knihovna tvých not a midi souborů. Tady se bude dát procházet, vyhledávat a třídit celou zásobu rozepsaných skladeb.')"
+                                title="Nápověda">?</button></h2>
+                    </header>
+                    <div class="content-body">
+                        <p>Funkce se připravuje...</p>
+                    </div>
+                </section>
+
+                <!-- PlaylistMaker -->
+                <section id="playlistmaker" class="content-section glass hidden">
+                    <header class="section-header flex-header" style="margin-bottom: 0px;">
+                        <h2>PlaylistMaker <button class="btn-help"
+                                onclick="window.showMirek('V PlaylistMakeru sestavuješ setlisty pro koncerty venku i pod střechou. Z tvého archivu jednoduše naklikáš požadované skladby s propočtem celkového času.')"
+                                title="Nápověda">?</button></h2>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <label for="pm-event-select" style="color: var(--text-muted); font-size: 0.9rem;">Navázat
+                                na:</label>
+                            <select id="pm-event-select" class="pm-input"
+                                style="width: auto; padding: 6px 12px; margin-bottom: 0;">
+                                <option value="">-- Volný návrh --</option>
+                                <!-- Generováno JS -->
+                            </select>
+                        </div>
+                    </header>
+                    <div class="pm-container">
+                        <!-- Levý panel: Repertoár -->
+                        <div class="pm-repertoire panel glass">
+                            <div class="pm-header flex-header">
+                                <h3>Repertoár</h3>
+                                <div class="pm-tools">
+                                    <input type="text" id="pm-search" placeholder="Hledat skladbu..." class="pm-input">
+                                </div>
+                            </div>
+                            <div class="pm-list-wrapper">
+                                <ul id="pm-source-list" class="pm-list source-list">
+                                    <!-- Generováno přes JS -->
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Pravý panel: Bloky setlistu -->
+                        <div class="pm-blocks panel">
+                            <div class="pm-header flex-header" style="margin-bottom: 20px;">
+                                <input type="text" id="pm-playlist-title" class="pm-block-title"
+                                    placeholder="Název playlistu..." style="font-size: 1.5rem; width: 50%;">
+                                <div style="display: flex; gap: 10px;">
+                                    <button class="btn btn-secondary" id="pm-add-set">+ Přidat blok</button>
+                                    <button class="btn btn-secondary" id="pm-add-note">+ Přidat poznámku</button>
+                                    <button class="btn btn-secondary" id="pm-export-cal" disabled
+                                        title="Vyberte událost nahoře">Export do kalendáře</button>
+                                    <button class="btn btn-primary" id="pm-export-pdf">Export PDF</button>
+                                </div>
+                            </div>
+
+                            <div id="pm-blocks-container" class="pm-blocks-container">
+                                <!-- Zde se budou generovat bloky -->
+                                <div class="pm-block glass active" data-block-id="1">
+                                    <div class="pm-block-header">
+                                        <input type="text" class="pm-block-title" value="1. Blok">
+                                        <div class="pm-block-stats">Čas: <span class="pm-time">00:00</span> | Skladby:
+                                            <span class="pm-count">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="pm-block-actions" style="display: flex; gap: 5px; margin-bottom: 10px;">
+                                        <button class="btn btn-secondary btn-clear-block"
+                                            style="font-size: 0.8rem; padding: 2px 8px;"
+                                            onclick="window.clearBlock(this)">Vymazat vše</button>
+                                        <button class="btn btn-secondary btn-remove-block"
+                                            style="font-size: 0.8rem; padding: 2px 8px; color: #ef4444; border-color: #ef4444;"
+                                            onclick="window.removeBlock(this)">Odstranit blok</button>
+                                    </div>
+                                    <ul class="pm-list target-list" data-block-id="1">
+                                        <!-- Sem se hází songy nebo poznámky -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Nápověda hudebního ředitele (Mirek) -->
+    <div id="helper-character" class="helper hidden">
+        <div class="helper-content">
+            <!-- Můžeš si tady nahradit fotku reálného Mirka (zatím kreslený placeholder) -->
+            <img class="helper-avatar" src="https://api.dicebear.com/7.x/micah/svg?seed=Mirkus" alt="Mirek">
+            <div class="helper-bubble">
+                <span id="helper-text">...</span>
+            </div>
+            <button id="helper-close" class="btn btn-primary"
+                style="margin-top: 10px; padding: 8px 30px;">Zavřít</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

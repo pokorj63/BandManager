@@ -494,16 +494,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             const li = document.createElement("li");
             li.className = "pm-item";
             li.dataset.duration = song.time;
+            li.dataset.num = song.number;
+            li.dataset.title = song.title;
+            li.dataset.singer = song.singer;
             li.innerHTML = `
                 <div class="pm-item-content">
                     <div style="display: flex; align-items: center;">
-                        <span style="font-size: 0.8rem; font-weight: 800; color: var(--accent); margin-right: 10px; min-width: 25px;">${song.number}</span>
-                        <span class="pm-item-title">${song.title}</span>
+                        <span style="font-size: 0.75rem; font-weight: 800; color: var(--accent); margin-right: 8px; min-width: 22px;">${song.number}</span>
+                        <span class="pm-item-title" style="font-size: 0.95rem;">${song.title}</span>
                     </div>
-                    <span class="pm-item-artist" style="margin-left: 35px;">${song.artist} <em style="opacity: 0.6;">(${song.singer})</em></span>
+                    <span class="pm-item-artist" style="margin-left: 30px; opacity: 0.8; font-size: 0.75rem;">${song.singer}</span>
                 </div>
                 <div style="display: flex; align-items: center;">
-                    <span class="pm-item-time">${formatTime(song.time)}</span>
+                    <span class="pm-item-time" style="font-size: 0.85rem;">${formatTime(song.time)}</span>
                     <button class="btn-remove-item" onclick="this.closest('li').remove(); window.updateBlockTime({target: this.closest('.target-list')});" title="Odebrat">✖</button>
                 </div>
             `;
@@ -617,24 +620,250 @@ document.addEventListener("DOMContentLoaded", async () => {
         const targetList = document.querySelector(".pm-block.active .target-list") || document.querySelector(".target-list");
         if (!targetList) return;
 
-        const text = prompt("Napiš text (poznámka, pauza, přídavek):");
-        if (!text) return;
-
         const li = document.createElement("li");
-        li.className = "pm-item pm-item-custom";
+        li.className = "pm-item"; // no custom red class, looks exactly like standard items
         li.dataset.duration = "0";
+        li.dataset.isNote = "true";
         li.innerHTML = `
-            <div class="pm-item-content">
-                <span class="pm-item-title">${text}</span>
+            <div class="pm-item-content" style="flex: 1;">
+                <input type="text" class="pm-note-input" value="Nová poznámka" style="background: transparent; border: none; outline: none; color: inherit; font-size: 0.95rem; font-weight: 800; font-family: 'Outfit', sans-serif; width: 100%;" onfocus="this.select();">
             </div>
-            <button class="btn-help" onclick="this.closest('li').remove(); event.stopPropagation();" style="border-color: #ef4444; color: #ef4444; margin: 0;">✖</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="btn-color-toggle" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0;" data-color="white" title="Přepnout barvu na červenou">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text-muted); background: transparent; transition: all 0.2s;" class="color-indicator"></div>
+                </button>
+                <button class="btn-remove-item" onclick="this.closest('li').remove(); window.updateBlockTime({target: this.closest('.target-list')});" title="Odebrat">✖</button>
+            </div>
         `;
+
+        const noteInput = li.querySelector(".pm-note-input");
+        const colorToggle = li.querySelector(".btn-color-toggle");
+        const indicator = colorToggle.querySelector(".color-indicator");
+
+        // Keep dataset title synced
+        li.dataset.title = noteInput.value;
+        noteInput.addEventListener("input", (e) => {
+            li.dataset.title = e.target.value;
+        });
+
+        colorToggle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (colorToggle.dataset.color === "white") {
+                colorToggle.dataset.color = "red";
+                indicator.style.background = "#ef4444";
+                indicator.style.borderColor = "#ef4444";
+                noteInput.style.color = "#ef4444";
+            } else {
+                colorToggle.dataset.color = "white";
+                indicator.style.background = "transparent";
+                indicator.style.borderColor = "var(--text-muted)";
+                noteInput.style.color = "inherit";
+            }
+        });
+
         targetList.appendChild(li);
     });
 
-    document.getElementById("pm-export-pdf").addEventListener("click", () => {
-        alert("Modul generace PDF bude brzy aktivován. Zatím sbíráme data bloků ke zpracování.");
+    function buildPdfDefinition() {
+        const listTitle = document.getElementById("pm-playlist-title").value || "KAPELNÍ PLAYLIST";
+        const headerTitle = `SET LIST – ${listTitle.toUpperCase()}`;
+
+        const blocks = document.querySelectorAll(".pm-block");
+        const showBlockTitle = blocks.length > 1;
+
+        // Auto-sizing logic
+        let totalItems = 0;
+        blocks.forEach(block => {
+            const targetList = block.querySelector(".target-list");
+            totalItems += targetList.children.length;
+        });
+        if (showBlockTitle) {
+            totalItems += blocks.length * 2; // block titles spacing approximation
+        }
+
+        let baseFontSize = 20;
+        let headerFontSize = 28;
+        let blockTitleFontSize = 24;
+        let cellMargin = 5;
+
+        if (totalItems > 45) {
+            baseFontSize = 14;
+            headerFontSize = 20;
+            blockTitleFontSize = 16;
+            cellMargin = 2;
+        } else if (totalItems > 35) {
+            baseFontSize = 16;
+            headerFontSize = 22;
+            blockTitleFontSize = 18;
+            cellMargin = 3;
+        } else if (totalItems > 25) {
+            baseFontSize = 18;
+            headerFontSize = 26;
+            blockTitleFontSize = 22;
+            cellMargin = 4;
+        }
+
+        const content = [
+            { text: headerTitle, style: "header", alignment: "center" }
+        ];
+
+        blocks.forEach(block => {
+            const blockTitle = block.querySelector(".pm-block-title").value;
+            const targetList = block.querySelector(".target-list");
+            if (targetList.children.length === 0) return;
+
+            if (showBlockTitle) {
+                content.push({ text: blockTitle, style: "blockTitle" });
+            }
+
+            const tableBody = [];
+            let i = 1;
+
+            Array.from(targetList.children).forEach(li => {
+                if (li.dataset.isNote === "true") {
+                    const noteInput = li.querySelector(".pm-note-input");
+                    const colorBtn = li.querySelector(".btn-color-toggle");
+                    const noteText = noteInput ? noteInput.value : (li.dataset.title || "");
+                    const isRed = colorBtn && colorBtn.dataset.color === "red";
+                    const pdfColor = isRed ? "#ef4444" : "#000000";
+
+                    tableBody.push([
+                        { text: "", margin: [0, cellMargin, 0, cellMargin] },
+                        { text: noteText, bold: true, color: pdfColor, margin: [0, cellMargin, 0, cellMargin] },
+                        { text: "", margin: [0, cellMargin, 0, cellMargin] },
+                        { text: "", margin: [0, cellMargin, 0, cellMargin] }
+                    ]);
+                } else {
+                    tableBody.push([
+                        { text: i + ".", bold: true, margin: [0, cellMargin, 0, cellMargin] },
+                        { text: li.dataset.title.toUpperCase(), bold: true, margin: [0, cellMargin, 0, cellMargin] },
+                        { text: `(${li.dataset.num})`, bold: true, margin: [0, cellMargin, 0, cellMargin] },
+                        { text: li.dataset.singer.toUpperCase(), bold: true, margin: [0, cellMargin, 0, cellMargin] }
+                    ]);
+                    i++;
+                }
+            });
+
+            content.push({
+                table: {
+                    widths: [30, '*', 45, 100],
+                    body: tableBody
+                },
+                layout: 'noBorders',
+                margin: [20, 5, 0, 10]
+            });
+        });
+
+        return {
+            content: content,
+            defaultStyle: {
+                fontSize: baseFontSize,
+                font: 'Calibri',
+                color: '#000000',
+                bold: true
+            },
+            styles: {
+                header: {
+                    fontSize: headerFontSize,
+                    bold: true,
+                    decoration: 'underline',
+                    margin: [0, 0, 0, cellMargin * 5]
+                },
+                blockTitle: {
+                    fontSize: blockTitleFontSize,
+                    bold: true,
+                    decoration: 'underline',
+                    margin: [0, cellMargin * 3, 0, cellMargin * 2]
+                }
+            }
+        };
+    }
+
+    async function loadCustomFonts() {
+        pdfMake.vfs = pdfMake.vfs || {};
+        if (!pdfMake.vfs['calibrib.ttf']) {
+            try {
+                const res = await fetch("/static/calibrib.ttf");
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const b64 = await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                        reader.readAsDataURL(blob);
+                    });
+                    pdfMake.vfs['calibrib.ttf'] = b64;
+                }
+            } catch (e) {
+                console.error("Custom font error:", e);
+            }
+        }
+        pdfMake.fonts = {
+            Roboto: {
+                normal: 'Roboto-Regular.ttf',
+                bold: 'Roboto-Medium.ttf',
+                italics: 'Roboto-Italic.ttf',
+                bolditalics: 'Roboto-MediumItalic.ttf'
+            },
+            Calibri: {
+                normal: 'calibrib.ttf',
+                bold: 'calibrib.ttf',
+                italics: 'calibrib.ttf',
+                bolditalics: 'calibrib.ttf'
+            }
+        };
+    }
+
+    document.getElementById("pm-export-pdf").addEventListener("click", async () => {
+        if (typeof pdfMake === "undefined") {
+            alert("pdfMake kód ještě není načten ze serveru.");
+            return;
+        }
+        document.getElementById("pm-export-pdf").textContent = "Generuji...";
+        await loadCustomFonts();
+        const docDef = buildPdfDefinition();
+        const title = document.getElementById("pm-playlist-title").value || "Playlist";
+        pdfMake.createPdf(docDef).download(`${title}.pdf`);
+        document.getElementById("pm-export-pdf").textContent = "Export PDF";
     });
+
+    const exportCalBtn = document.getElementById("pm-export-cal");
+    if (exportCalBtn) {
+        exportCalBtn.addEventListener("click", async () => {
+            const eventId = document.getElementById("pm-event-select").value;
+            if (!eventId) return;
+
+            if (typeof pdfMake === "undefined") return;
+
+            exportCalBtn.textContent = "Nahrávám...";
+            exportCalBtn.disabled = true;
+
+            await loadCustomFonts();
+
+            const docDef = buildPdfDefinition();
+            const title = document.getElementById("pm-playlist-title").value || "Playlist";
+
+            pdfMake.createPdf(docDef).getBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append("file", blob, `${title}.pdf`);
+                try {
+                    const res = await fetch(`/events/${eventId}/playlist_attach`, {
+                        method: "POST",
+                        body: formData
+                    });
+                    if (res.ok) {
+                        alert("Playlist byl přímo připojen do Kalendáře k události!");
+                    } else {
+                        alert("Chyba při nahrávání záznamu na Disk.");
+                    }
+                } catch (e) {
+                    alert("Síťová chyba.");
+                } finally {
+                    exportCalBtn.textContent = "Export do kalendáře";
+                    exportCalBtn.disabled = false;
+                }
+            });
+        });
+    }
 
     window.clearBlock = function (btn) {
         const block = btn.closest(".pm-block");

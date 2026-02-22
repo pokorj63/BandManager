@@ -219,6 +219,71 @@ def delete_event(event_id: int, request: Request, db: Session = Depends(get_db))
     db.commit()
     return {"deleted": True, "id": event_id}
 
+
+@router.post("/{event_id}/playlist_attach")
+def attach_playlist_to_calendar(
+    event_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    ev = db.query(Event).filter(Event.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    token = require_token(request)
+    creds = get_credentials_from_session(token)
+    drv = drive_service(creds)
+    cal = calendar_service(creds)
+    calendar_id = os.getenv("BAND_CALENDAR_ID")
+    
+    # 1. Upload to Drive (to the event's Media folder)
+    if not ev.drive_folder_id:
+        raise HTTPException(status_code=400, detail="Event missing drive folder.")
+        
+    folders = ensure_media_subfolders(drv, ev.drive_folder_id)
+    created = upload_file_to_drive(
+        drv, folders["media"], file.file, file.filename or "Playlist.pdf", "application/pdf"
+    )
+    
+    # store in DB MediaItem
+    size_raw = created.get("size")
+    size_bytes = int(size_raw) if size_raw is not None else None
+    
+    item = MediaItem(
+        event_id=ev.id,
+        drive_file_id=created["id"],
+        name=file.filename or "Playlist.pdf",
+        mime_type="application/pdf",
+        size_bytes=size_bytes,
+        category="other",
+    )
+    db.add(item)
+    db.commit()
+
+    # 2. Attach to Google Calendar Event
+    if calendar_id and ev.calendar_event_id:
+        try:
+            cal_ev = cal.events().get(calendarId=calendar_id, eventId=ev.calendar_event_id).execute()
+            attachments = cal_ev.get("attachments", [])
+            attachments.append({
+                "fileUrl": created.get("webViewLink") or created.get("webContentLink"),
+                "mimeType": "application/pdf",
+                "title": file.filename or "Playlist.pdf"
+            })
+            cal.events().patch(
+                calendarId=calendar_id, 
+                eventId=ev.calendar_event_id, 
+                body={"attachments": attachments}, 
+                supportsAttachments=True
+            ).execute()
+        except Exception:
+            # Silently fallback if calendar sync fails (e.g. event deleted on cloud)
+            pass
+
+    return {"status": "ok", "drive_id": created["id"]}
+
+
 @router.post("/{event_id}/media", response_model=MediaItemOut)
 def upload_media(
     event_id: int,

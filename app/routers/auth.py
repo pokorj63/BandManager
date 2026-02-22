@@ -40,7 +40,7 @@ async def google_callback(request: Request):
     TOKENS[sid] = {"token": token, "user": user}
     request.session["sid"] = sid
 
-    return JSONResponse({"logged_in": True, "user": user})
+    return RedirectResponse(url="/")
 
 
 @router.get("/me")

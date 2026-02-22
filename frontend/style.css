@@ -768,12 +768,14 @@ a {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
+    /* reduced from 20px */
     padding-right: 10px;
 }
 
 .pm-block {
-    padding: 15px;
+    padding: 10px 15px;
+    /* reduced from 15px */
     border-width: 2px;
     border-color: transparent;
     transition: border-color 0.2s;
@@ -787,9 +789,11 @@ a {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
+    /* reduced from 10px */
     border-bottom: 1px solid var(--glass-border);
-    padding-bottom: 10px;
+    padding-bottom: 8px;
+    /* reduced from 10px */
 }
 
 .pm-block-title {
@@ -819,8 +823,10 @@ a {
 
 .pm-item {
     background: rgba(255, 255, 255, 0.05);
-    padding: 10px 15px;
-    margin-bottom: 8px;
+    padding: 6px 12px;
+    /* reduced from 10px 15px */
+    margin-bottom: 5px;
+    /* reduced from 8px */
     border-radius: 6px;
     border: 1px solid var(--glass-border);
     cursor: grab;
@@ -843,7 +849,23 @@ a {
     background: rgba(205, 33, 60, 0.2) !important;
     border-color: var(--accent) !important;
     color: white;
-    font-weight: bold;
+}
+
+.pm-note-input {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 0.95rem;
+    /* reduced from 1rem */
+    font-weight: 600;
+    font-family: inherit;
+    width: 100%;
+    transform: translateY(-1px);
+}
+
+.pm-note-input:focus {
+    outline: none;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
 }
 
 .pm-item-content {
@@ -856,7 +878,8 @@ a {
 }
 
 .pm-item-artist {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    /* reduced from 0.8rem */
     color: var(--text-muted);
 }
 

@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 </head>
 
 <body>
@@ -19,9 +22,10 @@
 
         <!-- Přihlašovací obrazovka (pokud nejsme přihlášeni) -->
         <div id="login-view" class="view panel glass hidden">
-            <div class="logo-box">
-                <span class="icon">🎸</span>
-                <h1>BandManager</h1>
+            <div class="logo-box" style="text-align: center; margin-bottom: 2rem;">
+                <img src="/static/assets/BandManager_logo.png" alt="BandManager Logo"
+                    style="max-width: 300px; height: auto; margin-bottom: 10px;">
+                <h1 style="margin: 10px 0 5px 0; font-weight: 800; font-family: 'Outfit', sans-serif;">BandManager</h1>
                 <p>Tvůj ultimátní kapelní ekosystém</p>
             </div>
             <a href="/auth/google/login" class="btn btn-primary btn-large">
@@ -34,10 +38,12 @@
         <div id="dashboard-view" class="dashboard hidden">
             <!-- Boční panel (Sidebar) -->
             <nav class="sidebar glass">
-                <div class="brand" style="cursor: pointer;"
+                <div class="brand"
+                    style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 10px; gap: 10px;"
                     onclick="document.querySelector('a[data-target=welcome]') ? document.querySelector('a[data-target=welcome]').click() : showWelcome()">
-                    <span class="icon">🎸</span>
-                    <h2>BandManager</h2>
+                    <img src="/static/assets/BandManager_logo.png" alt="BandManager Logo"
+                        style="max-width: 100%; max-height: 80px; height: auto;">
+                    <h2 style="margin: 0; font-size: 1.5rem; font-weight: 800; text-align: center;">BandManager</h2>
                 </div>
 
                 <ul class="nav-links">
@@ -248,23 +254,37 @@
                         <h2>PlaylistMaker <button class="btn-help"
                                 onclick="window.showMirek('V PlaylistMakeru sestavuješ setlisty pro koncerty venku i pod střechou. Z tvého archivu jednoduše naklikáš požadované skladby s propočtem celkového času.')"
                                 title="Nápověda">?</button></h2>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <label for="pm-event-select" style="color: var(--text-muted); font-size: 0.9rem;">Navázat
-                                na:</label>
-                            <select id="pm-event-select" class="pm-input"
-                                style="width: auto; padding: 6px 12px; margin-bottom: 0;">
-                                <option value="">-- Volný návrh --</option>
+                        <div
+                            style="display: flex; gap: 10px; align-items: center; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 12px;">
+                            <label for="pm-event-select"
+                                style="color: var(--accent); font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">Navázat
+                                na událost:</label>
+                            <select id="pm-event-select"
+                                style="background: transparent; border: none; outline: none; color: white; cursor: pointer; font-weight: 600; padding: 4px; appearance: none; -webkit-appearance: none; padding-right: 15px;">
+                                <option value="" style="color: black;">-- Volný návrh (Nezařazeno) --</option>
                                 <!-- Generováno JS -->
                             </select>
+                            <i class="fa-solid fa-chevron-down"
+                                style="color: var(--text-muted); font-size: 0.8rem; pointer-events: none; margin-left: -10px;"></i>
                         </div>
                     </header>
                     <div class="pm-container">
                         <!-- Levý panel: Repertoár -->
                         <div class="pm-repertoire panel glass">
-                            <div class="pm-header flex-header">
-                                <h3>Repertoár</h3>
-                                <div class="pm-tools">
-                                    <input type="text" id="pm-search" placeholder="Hledat skladbu..." class="pm-input">
+                            <div class="pm-header"
+                                style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="margin: 0; font-size: 1.1rem;">Repertoár a Obsah</h3>
+                                </div>
+                                <div class="pm-tools" style="display: flex; gap: 8px;">
+                                    <input type="text" id="pm-search" placeholder="Hledat skladbu..." class="pm-input"
+                                        style="flex: 1; min-width: 0; padding: 6px 10px; font-size: 0.9rem;">
+                                    <button class="btn btn-secondary" id="pm-add-note"
+                                        style="padding: 6px 10px; font-size: 0.9rem; white-space: nowrap;"
+                                        title="Přidat poznámku, pauzu apod.">+ Poznámka</button>
+                                    <button class="btn btn-secondary" id="pm-add-set"
+                                        style="padding: 6px 10px; font-size: 0.9rem; white-space: nowrap;"
+                                        title="Nový blok pro dělení playlistu">+ Blok</button>
                                 </div>
                             </div>
                             <div class="pm-list-wrapper">
@@ -276,13 +296,12 @@
 
                         <!-- Pravý panel: Bloky setlistu -->
                         <div class="pm-blocks panel">
-                            <div class="pm-header flex-header" style="margin-bottom: 20px;">
+                            <div class="pm-header flex-header" style="margin-bottom: 15px;">
                                 <input type="text" id="pm-playlist-title" class="pm-block-title"
-                                    placeholder="Název playlistu..." style="font-size: 1.5rem; width: 50%;">
+                                    placeholder="Název playlistu..."
+                                    style="font-size: 1.3rem; width: 45%; margin-bottom: 0;">
                                 <div style="display: flex; gap: 10px;">
-                                    <button class="btn btn-secondary" id="pm-add-set">+ Přidat blok</button>
-                                    <button class="btn btn-secondary" id="pm-add-note">+ Přidat poznámku</button>
-                                    <button class="btn btn-secondary" id="pm-export-cal" disabled
+                                    <button class="btn btn-primary" id="pm-export-cal" disabled
                                         title="Vyberte událost nahoře">Export do kalendáře</button>
                                     <button class="btn btn-primary" id="pm-export-pdf">Export PDF</button>
                                 </div>

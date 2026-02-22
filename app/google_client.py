@@ -74,6 +74,6 @@ def upload_file_to_drive(drv, folder_id: str, upload_file, filename: str, mime_t
     created = drv.files().create(
         body={"name": filename, "parents": [folder_id]},
         media_body=media,
-        fields="id,name,mimeType,size",
+        fields="id,name,mimeType,size,webViewLink,webContentLink",
     ).execute()
     return created

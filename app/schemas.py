@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
+from datetime import date as dt_date, time as dt_time, datetime as dt_datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
 
 class EventCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    date: date
+    date: dt_date
 
-    time_start: Optional[time] = None
-    time_end: Optional[time] = None
+    time_start: Optional[dt_time] = None
+    time_end: Optional[dt_time] = None
 
     location: Optional[str] = Field(default=None, max_length=200)
     public_description: Optional[str] = None
@@ -19,10 +19,10 @@ class EventCreate(BaseModel):
 
 class EventUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    date: Optional[date] = None
+    date: Optional[dt_date] = None
 
-    time_start: Optional[time] = None
-    time_end: Optional[time] = None
+    time_start: Optional[dt_time] = None
+    time_end: Optional[dt_time] = None
 
     location: Optional[str] = Field(default=None, max_length=200)
     public_description: Optional[str] = None
@@ -50,10 +50,10 @@ class EventSubUpdate(BaseModel):
 class EventOut(BaseModel):
     id: int
     title: str
-    date: date
+    date: dt_date
 
-    time_start: Optional[time]
-    time_end: Optional[time]
+    time_start: Optional[dt_time]
+    time_end: Optional[dt_time]
 
     location: Optional[str]
     public_description: Optional[str]
@@ -63,6 +63,7 @@ class EventOut(BaseModel):
     drive_folder_id: Optional[str] = None
     
     subs: list[EventSubOut] = []
+    media_items: list[MediaItemOut] = []
 
     class Config:
         from_attributes = True

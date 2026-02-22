@@ -239,7 +239,26 @@ def attach_playlist_to_calendar(
     
     # 1. Upload to Drive (to the event's Media folder)
     if not ev.drive_folder_id:
-        raise HTTPException(status_code=400, detail="Event missing drive folder.")
+        # Dynamicky vytvořit složku, pokud synchronizovaný event ji ještě nemá
+        drive_root = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
+        if not drive_root:
+            raise HTTPException(status_code=500, detail="Missing drive root.")
+        
+        folder_name = f"{ev.date.isoformat()} {ev.title}"
+        folder = drv.files().create(
+            body={"name": folder_name, "mimeType": "application/vnd.google-apps.folder", "parents": [drive_root]},
+            fields="id",
+        ).execute()
+        ev.drive_folder_id = folder["id"]
+
+        media = drv.files().create(
+            body={"name": "Media", "mimeType": "application/vnd.google-apps.folder", "parents": [folder["id"]]},
+            fields="id",
+        ).execute()
+
+        drv.files().create(body={"name": "Fotky", "mimeType": "application/vnd.google-apps.folder", "parents": [media["id"]]}, fields="id").execute()
+        drv.files().create(body={"name": "Videa", "mimeType": "application/vnd.google-apps.folder", "parents": [media["id"]]}, fields="id").execute()
+        db.commit()
         
     folders = ensure_media_subfolders(drv, ev.drive_folder_id)
     created = upload_file_to_drive(
@@ -261,11 +280,30 @@ def attach_playlist_to_calendar(
     db.add(item)
     db.commit()
 
-    # 2. Attach to Google Calendar Event
+    # 2. Attach to Google Calendar Event & Delete old playlists
     if calendar_id and ev.calendar_event_id:
         try:
+            # Smažte staré playlisty z databáze a disku, pokud tam už jsou
+            old_playlists = db.query(MediaItem).filter(
+                MediaItem.event_id == ev.id,
+                MediaItem.name.like("Playlist%"),
+                MediaItem.id != item.id
+            ).all()
+
+            for old_pl in old_playlists:
+                try:
+                    drv.files().delete(fileId=old_pl.drive_file_id).execute()
+                except Exception:
+                    pass
+                db.delete(old_pl)
+            db.commit()
+
             cal_ev = cal.events().get(calendarId=calendar_id, eventId=ev.calendar_event_id).execute()
             attachments = cal_ev.get("attachments", [])
+            
+            # Odstranit z příloh kalendáře staré playlisty
+            attachments = [a for a in attachments if not (a.get("title", "").startswith("Playlist") and "pdf" in a.get("mimeType", ""))]
+
             attachments.append({
                 "fileUrl": created.get("webViewLink") or created.get("webContentLink"),
                 "mimeType": "application/pdf",
@@ -296,7 +334,25 @@ def upload_media(
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
     if not ev.drive_folder_id:
-        raise HTTPException(status_code=400, detail="Event has no Drive folder")
+        drive_root = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
+        if not drive_root:
+            raise HTTPException(status_code=500, detail="Missing drive root.")
+        
+        folder_name = f"{ev.date.isoformat()} {ev.title}"
+        folder = drv.files().create(
+            body={"name": folder_name, "mimeType": "application/vnd.google-apps.folder", "parents": [drive_root]},
+            fields="id",
+        ).execute()
+        ev.drive_folder_id = folder["id"]
+
+        media = drv.files().create(
+            body={"name": "Media", "mimeType": "application/vnd.google-apps.folder", "parents": [folder["id"]]},
+            fields="id",
+        ).execute()
+
+        drv.files().create(body={"name": "Fotky", "mimeType": "application/vnd.google-apps.folder", "parents": [media["id"]]}, fields="id").execute()
+        drv.files().create(body={"name": "Videa", "mimeType": "application/vnd.google-apps.folder", "parents": [media["id"]]}, fields="id").execute()
+        db.commit()
 
     token = require_token(request)
     creds = get_credentials_from_session(token)
@@ -429,17 +485,44 @@ def sync_calendar(request: Request, db: Session = Depends(get_db)):
             orderBy='startTime').execute()
         
         items = events_result.get('items', [])
+        print(f"DEBUG SYNC: fetched {len(items)} events from Google Calendar ID: {calendar_id}")
+        
+        try:
+            import json
+            with open("sync_debug.json", "w", encoding="utf-8") as f:
+                json.dump(events_result, f, ensure_ascii=False, indent=2)
+        except Exception as file_err:
+            print("Failed to save debug json:", file_err)
+
         
         # very basic 1-way sync (Google -> DB) based on calendar_event_id
         for item in items:
             event_id = item["id"]
             db_ev = db.query(Event).filter(Event.calendar_event_id == event_id).first()
+            
+            # parse start/end
+            start_dt = item.get('start', {}).get('dateTime')
+            start_d = item.get('start', {}).get('date')
+            
+            # Default to today if both are somehow missing
+            dt = datetime.datetime.now()
+            
+            if start_dt:
+                try:
+                    dt = datetime.datetime.fromisoformat(start_dt.replace("Z", "+00:00"))
+                except ValueError:
+                    pass
+            elif start_d:
+                try:
+                    # start_d for all-day events is "YYYY-MM-DD"
+                    parsed_date = datetime.date.fromisoformat(start_d)
+                    dt = datetime.datetime.combine(parsed_date, datetime.time.min)
+                except ValueError:
+                    # Fallback for python < 3.7 or string variations
+                    dt = datetime.datetime.strptime(start_d, "%Y-%m-%d")
+
             if not db_ev:
-                # new event from calendar
-                start = item['start'].get('dateTime', item['start'].get('date'))
-                # Just a rough parse for MVP
-                dt = datetime.datetime.fromisoformat(start) 
-                
+                print(f"DEBUG SYNC: New event found: {item.get('summary')} (ID: {event_id})")
                 new_ev = Event(
                     title=item.get("summary", "Bez Názvu"),
                     date=dt.date(),
@@ -448,6 +531,14 @@ def sync_calendar(request: Request, db: Session = Depends(get_db)):
                     calendar_event_id=event_id,
                 )
                 db.add(new_ev)
+            else:
+                # Upravíme i existující události, kdyby se v Google Kalendáři přesunuly nebo přejmenovaly
+                db_ev.date = dt.date()
+                db_ev.title = item.get("summary", "Bez Názvu")
+                db_ev.location = item.get("location")
+                db_ev.public_description = item.get("description")
+                
+
         db.commit()
         return {"synced": len(items)}
     except Exception as e:

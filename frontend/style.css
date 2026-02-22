@@ -415,10 +415,16 @@ a {
     width: 120px;
     height: 120px;
     border-radius: 50%;
-    border: 3px solid var(--accent);
     background: #1e293b;
-    box-shadow: 0 0 25px rgba(205, 33, 60, 0.4);
     object-fit: cover;
+}
+
+.helper-name {
+    font-weight: 800;
+    font-size: 1.2rem;
+    margin-top: -10px;
+    margin-bottom: 5px;
+    color: var(--text-main);
 }
 
 /* --- Flex Header pro nadpisy --- */
@@ -764,56 +770,119 @@ a {
 }
 
 .pm-blocks-container {
-    flex: 1;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 15px;
-    /* reduced from 20px */
-    padding-right: 10px;
+}
+
+/* Exact A4 PDF Dimensions & Calibrib font styling */
+@font-face {
+    font-family: 'CalibriPdf';
+    src: url('calibrib.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+.pm-printable-area {
+    background-color: #ffffff;
+    width: 595.28pt;
+    min-height: 841.89pt;
+    margin: 0 auto;
+    padding: 40pt;
+    box-sizing: border-box;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    color: #000000;
+    font-family: 'CalibriPdf', 'Outfit', sans-serif;
+    position: relative;
+    pointer-events: auto;
 }
 
 .pm-block {
-    padding: 10px 15px;
-    /* reduced from 15px */
-    border-width: 2px;
-    border-color: transparent;
-    transition: border-color 0.2s;
+    background: transparent;
+    padding: 0;
+    margin: 0 0 20pt 0;
+    width: 100%;
+    max-width: none;
+    min-height: auto;
+    border-radius: 0;
+    box-shadow: none;
+    color: #000000;
+    transition: none;
+    outline: none;
 }
 
 .pm-block.active {
-    border-color: var(--accent);
+    outline: none;
+    box-shadow: none;
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
 }
 
 .pm-block-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: baseline;
     margin-bottom: 5px;
-    /* reduced from 10px */
-    border-bottom: 1px solid var(--glass-border);
-    padding-bottom: 8px;
-    /* reduced from 10px */
+    border-bottom: none;
+    padding-bottom: 0px;
 }
 
 .pm-block-title {
     background: transparent;
     border: none;
-    color: white;
-    font-size: 1.2rem;
-    font-weight: 800;
-    width: 60%;
+    color: #000000;
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-align: left;
+    width: auto;
+    flex: 1;
     font-family: inherit;
+    text-transform: none;
+    text-decoration: underline;
 }
 
 .pm-block-title:focus {
     outline: none;
-    border-bottom: 1px solid var(--accent);
+}
+
+.pm-block-ui-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    opacity: 0.2;
+    transition: opacity 0.2s;
+}
+
+.pm-block:hover .pm-block-ui-actions {
+    opacity: 1;
 }
 
 .pm-block-stats {
-    font-size: 0.9rem;
-    color: var(--text-muted);
+    font-size: 0.85rem;
+    color: #999999;
+}
+
+.pm-block-ui-actions button {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    background: transparent;
+    border-radius: 4px;
+    border: 1px solid #cccccc;
+    color: #999999;
+    cursor: pointer;
+}
+
+.pm-block-ui-actions button:hover {
+    background: #f1f5f9;
+}
+
+.pm-block-ui-actions button.btn-remove-block {
+    border-color: #ef444455;
+    color: #ef444499;
+}
+
+.pm-block-ui-actions button.btn-remove-block:hover {
+    background: #fef2f2;
 }
 
 .pm-list {
@@ -902,6 +971,62 @@ a {
 
 .btn-remove-item:hover {
     color: #ef4444;
+}
+
+.target-list .pm-item {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 4px 0;
+    margin-bottom: 2px;
+    border-bottom: 1px dotted #cccccc;
+    color: #000000;
+    font-family: 'CalibriPdf', sans-serif;
+}
+
+.target-list .pm-item:hover {
+    background: rgba(0, 0, 0, 0.03);
+    /* slight graying out for UI visibility, but mostly white WYSIWYG */
+    border-color: #cccccc;
+}
+
+.target-list .pm-item span[style*="var(--accent)"] {
+    color: #000000 !important;
+    /* The numbers in the setlist turn black */
+    font-size: 1.1rem !important;
+}
+
+.target-list .pm-item-title {
+    font-size: 1.2rem !important;
+    font-weight: bold;
+}
+
+.target-list .pm-item-artist {
+    color: #666666 !important;
+    font-size: 0.9rem !important;
+}
+
+.target-list .pm-item-time {
+    color: #999999 !important;
+    /* Non-exported time is grayed out */
+    font-weight: normal;
+}
+
+.target-list .pm-item .btn-remove-item {
+    color: #cccccc;
+}
+
+.target-list .pm-item .btn-remove-item:hover {
+    color: #ef4444;
+}
+
+.target-list .pm-note-input {
+    font-size: 1.2rem !important;
+    font-family: 'CalibriPdf', sans-serif !important;
+}
+
+.target-list .pm-note-input:focus {
+    border-bottom: 1px dashed #cccccc;
 }
 
 .target-list .pm-item:hover .btn-remove-item {

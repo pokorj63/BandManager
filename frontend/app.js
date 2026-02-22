@@ -113,8 +113,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Skutečné dny
             for (let d = 1; d <= totalDays; d++) {
                 const cellDate = new Date(year, month, d);
-                // format YYYY-MM-DD
-                const dateStr = cellDate.toISOString().split("T")[0];
+                // format YYYY-MM-DD in local time
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
                 const el = document.createElement("div");
                 el.className = "calendar-day";
@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     eventsByDate[dateStr].forEach(ev => {
                         const evEl = document.createElement("div");
                         evEl.className = "calendar-event";
-                        evEl.textContent = `${ev.time_start ? ev.time_start.substring(0, 5) : "Celý den"}: ${ev.title}`;
+                        evEl.textContent = ev.title; // Only title per user request
                         evEl.onclick = (e) => {
                             e.stopPropagation();
                             openEventDetailModal(ev);
@@ -159,9 +159,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const detailPublic = document.getElementById("detail-public-desc");
     const detailInternal = document.getElementById("detail-internal-notes");
     const zaskokyList = document.getElementById("zaskoky-list");
+    const detailPlaylistInfo = document.getElementById("detail-playlist-info");
     const calendarGridCont = document.querySelector(".calendar-wrapper");
 
     let currentEventId = null;
+    let editingEventId = null;
 
     document.getElementById("close-detail").onclick = () => {
         detailView.classList.add("hidden");
@@ -170,7 +172,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("btn-delete-event").onclick = async () => {
         if (!currentEventId) return;
-        if (!confirm("Opravdu smazat tuto událost? Akce je nevratná.")) return;
+        if (!(await window.mirekConfirm("Opravdu smazat tuto událost? Akce je nevratná."))) return;
 
         try {
             const res = await fetch(`/events/${currentEventId}`, { method: "DELETE" });
@@ -180,12 +182,36 @@ document.addEventListener("DOMContentLoaded", async () => {
                 loadEvents();
                 alert("Událost byla úspěšně smazána.");
             } else {
-                alert("Došlo k chybě při mazání události.");
+                window.mirekAlert("Došlo k chybě při mazání události.");
             }
         } catch (e) {
             console.error(e);
-            alert("Kritická chyba spojení při mazání.");
+            window.mirekAlert("Kritická chyba spojení při mazání.");
         }
+    };
+
+    document.getElementById("btn-edit-event").onclick = () => {
+        if (!currentEventId) return;
+        detailView.classList.add("hidden");
+        calendarGridCont.style.display = "block";
+
+        editingEventId = currentEventId;
+        const formTitle = document.querySelector("#add-event-form h3");
+        if (formTitle) formTitle.textContent = "Upravit událost";
+
+        fetch(`/events/${currentEventId}`).then(r => r.json()).then(ev => {
+            document.getElementById("event-title").value = ev.title || "";
+            document.getElementById("event-date").value = ev.date || "";
+            document.getElementById("event-time-start").value = (ev.time_start || "").substring(0, 5);
+            document.getElementById("event-time-end").value = (ev.time_end || "").substring(0, 5);
+            document.getElementById("event-location").value = ev.location || "";
+            document.getElementById("event-public-desc").value = ev.public_description || "";
+            document.getElementById("event-internal-notes").value = ev.internal_notes || "";
+
+            formEventContainer.classList.remove("hidden");
+            btnShowAddEvent.style.display = "none";
+            document.querySelector(".main-content").scrollTo({ top: formEventContainer.offsetTop - 50, behavior: 'smooth' });
+        });
     };
 
     function openEventDetailModal(ev) {
@@ -207,6 +233,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         zaskokyList.innerHTML = "<li>Načítám záskoky...</li>";
         renderZaskoky(ev.subs || []);
+        renderPlaylistInfo(ev.media_items || []);
 
         const btnCreateLink = document.getElementById("btn-create-playlist-link");
         if (btnCreateLink) {
@@ -218,6 +245,26 @@ document.addEventListener("DOMContentLoaded", async () => {
                     pmSelect.dispatchEvent(new Event("change"));
                 }
             };
+        }
+    }
+
+    function renderPlaylistInfo(mediaItems) {
+        if (!detailPlaylistInfo) return;
+        const playlist = mediaItems.find(m => m.name.toLowerCase().startsWith("playlist") && m.mime_type === "application/pdf");
+        if (playlist) {
+            detailPlaylistInfo.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                    <span style="font-size: 1.5rem;">📄</span>
+                    <div style="text-align: left;">
+                        <strong style="display: block; color: var(--accent);">Playlist připojen</strong>
+                        <a href="https://drive.google.com/file/d/${playlist.drive_file_id}/view" target="_blank" style="color: #fff; text-decoration: underline; font-size: 0.9rem;">Otevřít z Google Disku</a>
+                    </div>
+                </div>
+            `;
+            // Note: Currently we store drive_file_id, but the backend doesn't provide webViewLink in the schema yet. 
+            // In a real env, we'd need that link. For now I'll use the ID as placeholder or fix schema.
+        } else {
+            detailPlaylistInfo.textContent = "Zatím nebyl nahrán playlist pro tento koncert.";
         }
     }
 
@@ -265,7 +312,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     window.deleteZaskok = async (subId) => {
-        if (!confirm("Opravdu smazat tento záskok?")) return;
+        if (!(await window.mirekConfirm("Opravdu smazat tento záskok?"))) return;
         try {
             const res = await fetch(`/events/${currentEventId}/subs/${subId}`, { method: "DELETE" });
             if (res.ok) {
@@ -323,14 +370,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                     method: "POST",
                     body: formData
                 });
-                if (!res.ok) alert(`Chyba při nahrávání souboru: ${file.name}`);
+                if (!res.ok) window.mirekAlert(`Chyba při nahrávání souboru: ${file.name}`);
             } catch (err) {
                 console.error(err);
-                alert(`Nelze nahrát ${file.name}`);
+                window.mirekAlert(`Nelze nahrát ${file.name}`);
             }
         }
         uploadMediaBtn.textContent = "Upload Fotek/Videí";
-        alert("Soubory úspěšně nahrány!");
+        window.mirekAlert("Soubory úspěšně nahrány!");
         e.target.value = "";
     };
 
@@ -342,17 +389,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         // simple indicator for PDF
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("category", "other");
+        // category not needed for playlist_attach but we can just leave it
 
         try {
-            const res = await fetch(`/events/${currentEventId}/media`, {
+            const res = await fetch(`/events/${currentEventId}/playlist_attach`, {
                 method: "POST",
                 body: formData
             });
             if (res.ok) {
-                alert("Playlist byl nahrán!");
+                window.mirekAlert("Playlist byl úspěšně vázán na událost a Google kalendář!");
+                // Re-fetch event to update UI
+                const fresh = await fetch(`/events/${currentEventId}`).then(r => r.json());
+                openEventDetailModal(fresh);
             } else {
-                alert("Nepovedlo se nahrát Playlist");
+                window.mirekAlert("Nepovedlo se nahrát Playlist.");
             }
         } catch (err) {
             console.error(err);
@@ -362,21 +412,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const btnSyncEvents = document.getElementById("btn-sync-events");
     btnSyncEvents.addEventListener("click", async () => {
-        btnSyncEvents.textContent = "Sychronizuji...";
+        btnSyncEvents.textContent = "Synchronizuji...";
         btnSyncEvents.disabled = true;
         try {
             const res = await fetch("/events/sync", { method: "POST" });
             if (res.ok) {
-                alert("Synchronizace Google Kalendáře proběhla úspěšně!");
+                window.mirekAlert("Synchronizace s Google Kalendářem proběhla úspěšně!");
                 await loadEvents();
             } else {
-                alert("Chyba při synchronizaci");
+                window.mirekAlert("Chyba při synchronizaci");
             }
         } catch (e) {
             console.error(e);
-            alert("Kritická chyba spojení při synchronizaci.");
+            window.mirekAlert("Kritická chyba spojení při synchronizaci.");
         } finally {
-            btnSyncEvents.textContent = "🔄 Synch S Kalendářem";
+            btnSyncEvents.textContent = "Synchronizovat s kalendářem";
             btnSyncEvents.disabled = false;
         }
     });
@@ -394,6 +444,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     btnShowAddEvent.addEventListener("click", () => {
+        editingEventId = null;
+        formEvent.reset();
+        const formTitle = document.querySelector("#add-event-form h3");
+        if (formTitle) formTitle.textContent = "Nová událost";
+
         formEventContainer.classList.remove("hidden");
         btnShowAddEvent.style.display = "none";
     });
@@ -402,6 +457,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         formEventContainer.classList.add("hidden");
         btnShowAddEvent.style.display = "block";
         formEvent.reset();
+        editingEventId = null;
     });
 
     formEvent.addEventListener("submit", async (e) => {
@@ -420,8 +476,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         formEvent.querySelector('button[type="submit"]').textContent = "Ukládám...";
 
         try {
-            const res = await fetch("/events", {
-                method: "POST",
+            const method = editingEventId ? "PATCH" : "POST";
+            const url = editingEventId ? `/events/${editingEventId}` : "/events";
+
+            const res = await fetch(url, {
+                method: method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
@@ -431,32 +490,62 @@ document.addEventListener("DOMContentLoaded", async () => {
                 formEventContainer.classList.add("hidden");
                 btnShowAddEvent.style.display = "block";
                 loadEvents();
-                alert("Koncert je v kalendáři a Google složka vytvořena.");
+                window.mirekAlert(editingEventId ? "Událost byla úspěšně upravena." : "Koncert je v kalendáři a Google složka vytvořena.");
+                editingEventId = null;
             } else {
                 const err = await res.json();
-                alert("Chyba při ukládání: " + JSON.stringify(err));
+                window.mirekAlert("Chyba při ukládání: " + JSON.stringify(err));
             }
         } catch (e) {
             console.error(e);
-            alert("Kritická chyba spojení.");
+            window.mirekAlert("Kritická chyba spojení.");
         } finally {
             formEvent.querySelector('button[type="submit"]').textContent = prevBtnText;
         }
     });
 
-    // --- 4. Zobrazení kontextové nápovědy (Mirek) ---
+    // --- 4. Zobrazení kontextové nápovědy / Alertů / Potvrzení (Mirek) ---
     const helperContainer = document.getElementById("helper-character");
     const helperText = document.getElementById("helper-text");
     const btnHelperClose = document.getElementById("helper-close");
+    const btnHelperCancel = document.getElementById("helper-cancel");
 
     window.showMirek = function (text) {
-        helperText.textContent = text;
-        helperContainer.classList.remove("hidden");
+        return window.mirekAlert(text);
     };
 
-    btnHelperClose.addEventListener("click", () => {
-        helperContainer.classList.add("hidden");
-    });
+    window.mirekAlert = function (msg) {
+        return new Promise((resolve) => {
+            helperText.textContent = msg;
+            helperContainer.classList.remove("hidden");
+            btnHelperCancel.style.display = "none";
+            btnHelperClose.textContent = "Ok";
+
+            btnHelperClose.onclick = () => {
+                helperContainer.classList.add("hidden");
+                resolve(true);
+            };
+        });
+    };
+
+    window.mirekConfirm = function (msg) {
+        return new Promise((resolve) => {
+            helperText.textContent = msg;
+            helperContainer.classList.remove("hidden");
+            btnHelperCancel.style.display = "inline-block";
+            btnHelperCancel.textContent = "Ne";
+            btnHelperClose.textContent = "Ano";
+
+            btnHelperClose.onclick = () => {
+                helperContainer.classList.add("hidden");
+                resolve(true);
+            };
+            btnHelperCancel.onclick = () => {
+                helperContainer.classList.add("hidden");
+                resolve(false);
+            };
+        });
+    };
 
     // --- 5. MusicArchivator logika ---
     const maSongsTbody = document.getElementById("ma-songs-tbody");
@@ -643,22 +732,124 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    function updateWYSIWYGScaling() {
+        const blocks = document.querySelectorAll(".pm-block");
+        const showBlockTitle = blocks.length > 1;
+
+        let totalItems = 0;
+        blocks.forEach(block => {
+            const targetList = block.querySelector(".target-list");
+            if (targetList) totalItems += targetList.children.length;
+        });
+        if (showBlockTitle) {
+            totalItems += blocks.length * 2;
+        }
+
+        let baseFontSize = 20;
+        let headerFontSize = 28;
+        let blockTitleFontSize = 24;
+        let cellPadding = 5;
+
+        if (totalItems > 45) {
+            baseFontSize = 14;
+            headerFontSize = 20;
+            blockTitleFontSize = 16;
+            cellPadding = 2;
+        } else if (totalItems > 35) {
+            baseFontSize = 16;
+            headerFontSize = 22;
+            blockTitleFontSize = 18;
+            cellPadding = 3;
+        } else if (totalItems > 25) {
+            baseFontSize = 18;
+            headerFontSize = 26;
+            blockTitleFontSize = 22;
+            cellPadding = 4;
+        }
+
+        const pmTitle = document.getElementById("pm-playlist-title");
+        if (pmTitle) {
+            pmTitle.style.fontSize = headerFontSize + "pt";
+            pmTitle.style.fontFamily = "CalibriPdf, sans-serif";
+            pmTitle.style.textAlign = "center";
+            pmTitle.style.width = "100%";
+            pmTitle.style.textTransform = "uppercase";
+            pmTitle.style.fontWeight = "bold";
+            pmTitle.style.color = "#000";
+            pmTitle.style.textDecoration = "underline";
+            pmTitle.style.marginBottom = (cellPadding * 5) + "pt";
+            pmTitle.style.paddingBottom = "0";
+        }
+
+        blocks.forEach(block => {
+            const titleInput = block.querySelector(".pm-block-title");
+            if (titleInput) {
+                titleInput.style.fontSize = blockTitleFontSize + "pt";
+                titleInput.style.textAlign = "left";
+                titleInput.style.textDecoration = "underline";
+            }
+            const header = block.querySelector(".pm-block-header");
+            if (header) {
+                header.style.marginBottom = (cellPadding * 2) + "pt";
+            }
+            const targetList = block.querySelector(".target-list");
+            if (targetList) {
+                Array.from(targetList.children).forEach(li => {
+                    li.style.fontSize = baseFontSize + "pt";
+                    li.style.padding = `${cellPadding}pt 0`;
+
+                    const noteInput = li.querySelector(".pm-note-input");
+                    if (noteInput) {
+                        noteInput.style.fontSize = baseFontSize + "pt";
+                    }
+                });
+            }
+        });
+
+        // -------------------------
+        // Zrušena striktní A4 paginace v náhledu, bloky jen navazují s případným plynulým přesunem
+        blocks.forEach(b => {
+            b.style.marginTop = '0px';
+        });
+    }
+
     window.updateBlockTime = function (evt) {
         if (!evt) return;
-        const listEl = evt.to || evt.target;
-        if (!listEl) return;
+        const listEl = evt.to || evt.target || evt;
+        if (!listEl || !listEl.closest) return;
 
         const blockEl = listEl.closest(".pm-block");
         if (!blockEl) return;
 
         let totalSeconds = 0;
         let songCount = 0;
+        let index = 1;
+
         Array.from(listEl.children).forEach(li => {
-            if (!li.classList.contains("pm-item-custom")) {
+            if (li.dataset.isNote !== "true") {
                 songCount++;
             }
             if (li.dataset.duration) {
                 totalSeconds += parseInt(li.dataset.duration, 10);
+            }
+
+            if (li.dataset.isNote !== "true") {
+                const durStr = li.dataset.duration ? formatTime(parseInt(li.dataset.duration)) : "";
+                const numDisplay = li.dataset.num ? "(" + li.dataset.num + ")" : "";
+
+                li.innerHTML = `
+                    <div style="display: flex; width: 100%; align-items: center; justify-content: space-between;">
+                        <div style="width: 30pt; font-weight: bold; text-align: left;">${index}.</div>
+                        <div style="flex: 1; font-weight: bold; text-transform: uppercase;">${li.dataset.title}</div>
+                        <div style="width: 45pt; font-weight: bold; text-align: left;">${numDisplay}</div>
+                        <div style="width: 100pt; font-weight: bold; text-align: left;">${li.dataset.singer.toUpperCase()}</div>
+                        <div style="width: auto; padding-left: 10pt; display: flex; align-items: center; justify-content: flex-end;">
+                           <span style="color: #999; font-size: 0.8rem; margin-right: 8px;">${durStr}</span>
+                           <button class="btn-remove-item" onclick="this.closest('li').remove(); window.updateBlockTime({target: this.closest('.target-list')});" title="Odebrat">✖</button>
+                        </div>
+                    </div>
+                `;
+                index++;
             }
         });
 
@@ -667,6 +858,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const countSpan = blockEl.querySelector(".pm-count");
         if (countSpan) countSpan.textContent = songCount;
+
+        updateWYSIWYGScaling();
     }
 
     const defaultTarget = document.querySelector(".target-list");
@@ -676,16 +869,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         blockCount++;
         const blockHTML = document.createElement("div");
         document.querySelectorAll(".pm-block").forEach(b => b.classList.remove("active"));
-        blockHTML.className = "pm-block glass active";
+        blockHTML.className = "pm-block active";
         blockHTML.dataset.blockId = blockCount;
         blockHTML.innerHTML = `
             <div class="pm-block-header">
                 <input type="text" class="pm-block-title" value="${blockCount}. Blok">
-                <div class="pm-block-stats">Čas: <span class="pm-time">00:00</span> | Skladby: <span class="pm-count">0</span></div>
-            </div>
-            <div class="pm-block-actions" style="display: flex; gap: 5px; margin-bottom: 10px;">
-                <button class="btn btn-secondary btn-clear-block" style="font-size: 0.8rem; padding: 2px 8px;" onclick="window.clearBlock(this)">Vymazat vše</button>
-                <button class="btn btn-secondary btn-remove-block" style="font-size: 0.8rem; padding: 2px 8px; color: #ef4444; border-color: #ef4444;" onclick="window.removeBlock(this)">Odstranit blok</button>
+                <div class="pm-block-ui-actions">
+                    <div class="pm-block-stats">Čas: <span class="pm-time">00:00</span> | Skladby: <span class="pm-count">0</span></div>
+                    <button class="btn btn-secondary btn-clear-block" onclick="window.clearBlock(this)">Vymazat vše</button>
+                    <button class="btn btn-secondary btn-remove-block" onclick="window.removeBlock(this)">Odstranit blok</button>
+                </div>
             </div>
             <ul class="pm-list target-list" data-block-id="${blockCount}"></ul>
         `;
@@ -704,11 +897,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         li.dataset.isNote = "true";
         li.innerHTML = `
             <div class="pm-item-content" style="flex: 1;">
-                <input type="text" class="pm-note-input" value="Nová poznámka" style="background: transparent; border: none; outline: none; color: inherit; font-size: 0.95rem; font-weight: 800; font-family: 'Outfit', sans-serif; width: 100%;" onfocus="this.select();">
+                <input type="text" class="pm-note-input" value="Nová poznámka" style="background: transparent; border: none; outline: none; color: inherit; font-size: 1.2rem; font-weight: bold; font-family: 'CalibriPdf', sans-serif; width: 100%;" onfocus="this.select();">
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button class="btn-color-toggle" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0;" data-color="white" title="Přepnout barvu na červenou">
-                    <div style="width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text-muted); background: transparent; transition: all 0.2s;" class="color-indicator"></div>
+                    <div style="width: 12px; height: 12px; border-radius: 50%; border: 2px solid #cccccc; background: transparent; transition: all 0.2s;" class="color-indicator"></div>
                 </button>
                 <button class="btn-remove-item" onclick="this.closest('li').remove(); window.updateBlockTime({target: this.closest('.target-list')});" title="Odebrat">✖</button>
             </div>
@@ -734,7 +927,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else {
                 colorToggle.dataset.color = "white";
                 indicator.style.background = "transparent";
-                indicator.style.borderColor = "var(--text-muted)";
+                indicator.style.borderColor = "#cccccc";
                 noteInput.style.color = "inherit";
             }
         });
@@ -744,7 +937,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function buildPdfDefinition() {
         const listTitle = document.getElementById("pm-playlist-title").value || "KAPELNÍ PLAYLIST";
-        const headerTitle = listTitle;
+        const headerTitle = listTitle.toUpperCase();
 
         const blocks = document.querySelectorAll(".pm-block");
         const showBlockTitle = blocks.length > 1;
@@ -790,8 +983,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             const targetList = block.querySelector(".target-list");
             if (targetList.children.length === 0) return;
 
+            const blockStack = [];
+
             if (showBlockTitle) {
-                content.push({ text: blockTitle, style: "blockTitle" });
+                blockStack.push({ text: blockTitle, style: "blockTitle" });
             }
 
             const tableBody = [];
@@ -822,13 +1017,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             });
 
-            content.push({
+            blockStack.push({
                 table: {
                     widths: [30, '*', 45, 100],
                     body: tableBody
                 },
                 layout: 'noBorders',
                 margin: [20, 5, 0, 10]
+            });
+
+            // Make sure the block naturally drops down entirely to the next page if it does not fit
+            // except if there is only 1 block in the playlist, so it doesn't jump out of sequence from title page
+            content.push({
+                stack: blockStack,
+                unbreakable: blocks.length > 1
             });
         });
 
@@ -945,18 +1147,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    window.clearBlock = function (btn) {
+    window.clearBlock = async function (btn) {
         const block = btn.closest(".pm-block");
         const list = block.querySelector(".target-list");
-        if (list && confirm("Opravdu vyčistit tento blok?")) {
+        if (list && (await window.mirekConfirm("Opravdu vyčistit tento blok?"))) {
             list.innerHTML = "";
             window.updateBlockTime({ target: list });
         }
     };
 
-    window.removeBlock = function (btn) {
+    window.removeBlock = async function (btn) {
         const block = btn.closest(".pm-block");
-        if (confirm("Opravdu smazat celý tento blok?")) {
+        if (await window.mirekConfirm("Opravdu smazat celý tento blok?")) {
             block.remove();
             updateBlockHeadersVisibility();
             // ensure there is an active block
@@ -1032,6 +1234,47 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateMonthLabel();
     loadEvents();
     loadUpcomingEvents();
+
+    // Zapnutí WYSIWYG přepočtu hned na startu
+    const pmTitleInput = document.getElementById("pm-playlist-title");
+    if (pmTitleInput) pmTitleInput.addEventListener("input", updateWYSIWYGScaling);
+    updateWYSIWYGScaling();
     updateBlockHeadersVisibility();
+
+    // A4 WYSIWYG ResizeObserver (udržet šířku okna bez horizontálního scrollování)
+    const wysiwygWrapper = document.getElementById("pm-wysiwyg-wrapper");
+    const scaleContainer = document.getElementById("pm-scale-container");
+    const printableArea = document.getElementById("pm-printable-area");
+    // Ensure styles are initialized before observing
+    if (scaleContainer) {
+        scaleContainer.style.position = 'relative';
+        scaleContainer.style.transformOrigin = 'top center';
+    }
+
+    if (wysiwygWrapper && scaleContainer && printableArea) {
+        const resizeObserver = new ResizeObserver(() => {
+            const targetWidthPx = 800; // 595.28pt is ~794px, plus some safe margin
+            const availableWidth = wysiwygWrapper.clientWidth - 40; // 20px offset left/right
+            let scale = 1;
+
+            if (availableWidth < targetWidthPx && availableWidth > 0) {
+                scale = availableWidth / targetWidthPx;
+            }
+
+            const adjuster = document.getElementById("pm-scale-height-adjuster");
+            if (adjuster) {
+                scaleContainer.style.transform = `scale(${scale})`;
+                // Set the adjuster to the new scaled physical height
+                // Default height is set by updateWYSIWYGScaling (total pages * height).
+                // Or if it's currently unset, we can read the raw height.
+                adjuster.style.height = (scaleContainer.offsetHeight * scale) + "px";
+            }
+        });
+
+        // Sledovat změnu velikosti okna/stránky
+        resizeObserver.observe(wysiwygWrapper);
+        // Sledovat změnu obsahu (natáhnutí/zkrácení papíru)
+        resizeObserver.observe(printableArea);
+    }
 
 });

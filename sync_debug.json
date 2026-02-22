@@ -1,0 +1,43 @@
+{
+  "kind": "calendar#events",
+  "etag": "\"p32vu575spjmp40o\"",
+  "summary": "BandManager DEV",
+  "description": "",
+  "updated": "2026-02-22T17:13:56.341Z",
+  "timeZone": "Europe/Prague",
+  "accessRole": "owner",
+  "defaultReminders": [],
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"3543560872682110\"",
+      "id": "5toi34p91lsiqu6g0ntpk99lrt",
+      "status": "confirmed",
+      "htmlLink": "https://www.google.com/calendar/event?eid=NXRvaTM0cDkxbHNpcXU2ZzBudHBrOTlscnQgZTA3ZTgxZTExY2ZjYTBlN2FmOGI5MjI2NDY3MGZhNTUyNmRlMTBhODliNTAyYzBmNGM1OGE4NjM0ZmEwNjgyYkBn",
+      "created": "2026-02-22T17:13:49.000Z",
+      "updated": "2026-02-22T17:13:56.341Z",
+      "summary": "hihi",
+      "creator": {
+        "email": "kuna.pokorny2002@gmail.com"
+      },
+      "organizer": {
+        "email": "e07e81e11cfca0e7af8b92264670fa5526de10a89b502c0f4c58a8634fa0682b@group.calendar.google.com",
+        "displayName": "BandManager DEV",
+        "self": true
+      },
+      "start": {
+        "date": "2026-02-28"
+      },
+      "end": {
+        "date": "2026-03-01"
+      },
+      "transparency": "transparent",
+      "iCalUID": "5toi34p91lsiqu6g0ntpk99lrt@google.com",
+      "sequence": 0,
+      "reminders": {
+        "useDefault": false
+      },
+      "eventType": "default"
+    }
+  ]
+}

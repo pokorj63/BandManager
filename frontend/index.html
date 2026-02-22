@@ -238,16 +238,46 @@
 
                 <!-- MusicArchivator -->
                 <section id="musicarchivator" class="content-section glass hidden">
-                    <header class="section-header">
-                        <h2>MusicArchivator <button class="btn-help"
-                                onclick="window.showMirek('MusicArchivator je knihovna tvých not a midi souborů. Tady se bude dát procházet, vyhledávat a třídit celou zásobu rozepsaných skladeb.')"
-                                title="Nápověda">?</button></h2>
+                    <header class="section-header flex-header" style="margin-bottom: 20px;">
+                        <div>
+                            <h2>MusicArchivator <button class="btn-help"
+                                    onclick="window.showMirek('MusicArchivator je knihovna tvých not a midi souborů. Tady se bude dát procházet, vyhledávat a třídit celou zásobu rozepsaných skladeb.')"
+                                    title="Nápověda">?</button></h2>
+                            <div class="ma-top-links" style="display: flex; gap: 15px; margin-top: 10px;">
+                                <a href="#" id="ma-link-current-list" class="btn btn-secondary"
+                                    style="color: #ef4444; border-color: #ef4444; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-brands fa-google-drive"></i> Aktuální seznam skladeb
+                                </a>
+                                <a href="#" id="ma-link-missing-parts" class="btn btn-secondary"
+                                    style="color: #ef4444; border-color: #ef4444; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-brands fa-google-drive"></i> Seznam chybějících partů
+                                </a>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: flex-start;">
+                            <button class="btn btn-secondary" id="ma-btn-config-instruments">Nastavení nástrojů</button>
+                            <button class="btn btn-primary" id="ma-btn-add-song">+ Přidat skladbu</button>
+                        </div>
                     </header>
-                    <div class="content-body">
-                        <p>Funkce se připravuje...</p>
+
+                    <div class="ma-list-container panel glass">
+                        <table class="ma-table">
+                            <thead>
+                                <tr>
+                                    <th width="5%">Č.</th>
+                                    <th width="25%">Název</th>
+                                    <th width="15%">Zpěvák</th>
+                                    <th width="35%">Chybějící párty</th>
+                                    <th width="10%">Disk</th>
+                                    <th width="10%">Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ma-songs-tbody">
+                                <!-- Generováno JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </section>
-
                 <!-- PlaylistMaker -->
                 <section id="playlistmaker" class="content-section glass hidden">
                     <header class="section-header flex-header" style="margin-bottom: 0px;">

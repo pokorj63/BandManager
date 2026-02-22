@@ -458,24 +458,91 @@ document.addEventListener("DOMContentLoaded", async () => {
         helperContainer.classList.add("hidden");
     });
 
-    // --- 5. PlaylistMaker logika ---
+    // --- 5. MusicArchivator logika ---
+    const maSongsTbody = document.getElementById("ma-songs-tbody");
+
+    // Rozšířená Mock data (postupně nahradíš těmi z DB)
+    const mockRepertoire = [
+        { id: "s1", number: "07", category: "Standard", title: "Billie Jean", artist: "Michael Jackson", singer: "Eva", time: 294, missingParts: ["Baskytara"], driveLink: "#" },
+        { id: "s2", number: "15", category: "Standard", title: "Smells Like Teen Spirit", artist: "Nirvana", singer: "Adam", time: 270, missingParts: ["Zpěv", "Klávesy"], driveLink: "#" },
+        { id: "s3", number: "18", category: "Standard", title: "Sweet Child O' Mine", artist: "Guns N' Roses", singer: "Adam", time: 356, missingParts: ["Bicí"], driveLink: "#" },
+        { id: "s4", number: "21", category: "Standard", title: "Livin' on a Prayer", artist: "Bon Jovi", singer: "Adam", time: 249, missingParts: ["Klávesy"], driveLink: "#" },
+        { id: "s5", number: "33", category: "Standard", title: "Wonderwall", artist: "Oasis", singer: "Eva", time: 258, missingParts: [], driveLink: "#" },
+        { id: "s6", number: "42", category: "Standard", title: "Hotel California", artist: "The Eagles", singer: "Adam", time: 390, missingParts: [], driveLink: "#" },
+        { id: "s7", number: "64", category: "Standard", title: "Don't Stop Believin'", artist: "Journey", singer: "Eva", time: 251, missingParts: [], driveLink: "#" },
+        { id: "s8", number: "99", category: "Standard", title: "Bohemian Rhapsody", artist: "Queen", singer: "Adam", time: 355, missingParts: ["Vokály", "Kytara 2"], driveLink: "#" },
+        { id: "s9", number: "N", category: "Plesovky", title: "Schody z nebe", artist: "Tereza Kerndlová", singer: "Eva", time: 180, missingParts: [], driveLink: "#" },
+        { id: "s10", number: "N", category: "Plesovky", title: "Dlouhá noc", artist: "Helena Vondráčková", singer: "Eva", time: 210, missingParts: ["Klávesy"], driveLink: "#" },
+        { id: "s11", number: "N", category: "Vánoční", title: "Půlnoční", artist: "Václav Neckář", singer: "Adam", time: 250, missingParts: [], driveLink: "#" },
+        { id: "s12", number: "N", category: "Vánoční", title: "Last Christmas", artist: "Wham!", singer: "Adam", time: 280, missingParts: [], driveLink: "#" }
+    ];
+
+    function renderMA() {
+        if (!maSongsTbody) return;
+        maSongsTbody.innerHTML = "";
+
+        let currentCategory = "";
+
+        mockRepertoire.forEach(song => {
+            if (song.category !== currentCategory) {
+                currentCategory = song.category;
+                const headTr = document.createElement("tr");
+                headTr.innerHTML = `
+                    <td colspan="6" style="background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.8rem; font-weight: 800; color: var(--text-muted); padding: 8px 10px;">
+                        ${song.category === "Standard" ? "Běžný repertoár (Číslovaný)" : "Nezařazeno - " + song.category}
+                    </td>
+                `;
+                maSongsTbody.appendChild(headTr);
+            }
+
+            const tr = document.createElement("tr");
+
+            let missingHtml = "";
+            if (song.missingParts && song.missingParts.length > 0) {
+                missingHtml = song.missingParts.map(p => `<span class="part-missing">${p}</span>`).join("");
+            } else {
+                missingHtml = `<span style="color: var(--text-muted); font-size: 0.8rem;">Vše kompletní</span>`;
+            }
+
+            tr.innerHTML = `
+                <td><strong style="color: var(--accent);">${song.number}</strong></td>
+                <td>
+                    <div style="font-weight: 800; font-size: 1.05rem;">${song.title}</div>
+                    <div style="color: var(--text-muted); font-size: 0.8rem;">${song.artist}</div>
+                </td>
+                <td style="font-weight: 600;">${song.singer}</td>
+                <td>${missingHtml}</td>
+                <td>
+                    <a href="${song.driveLink}" target="_blank" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem; text-decoration: none;">
+                        <i class="fa-brands fa-google-drive" style="color: #10b981;"></i> Otevřít
+                    </a>
+                </td>
+                <td>
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="alert('Upravit skladbu id: ${song.id}')">✏️ Úprava</button>
+                </td>
+            `;
+            maSongsTbody.appendChild(tr);
+        });
+    }
+
+    // Vyvolat render při startu
+    renderMA();
+
+    document.getElementById("ma-btn-config-instruments")?.addEventListener("click", () => {
+        alert("Zde se otevře UI k zaškrtání (Kytara, Basa, Bicí, Zpěv, Klávesy...) – nástrojové obsazení kapely.");
+    });
+
+    document.getElementById("ma-btn-add-song")?.addEventListener("click", () => {
+        alert("Otevře se formulář pro založení nové skladby, vyplnění čísla, názvu a zpěváka.\n\nPoté to bude chtít nahrát složku PDF a audio stop pro automatické roztřídění.");
+    });
+
+
+    // --- 6. PlaylistMaker logika ---
     const pmSourceList = document.getElementById("pm-source-list");
     const pmBlocksContainer = document.getElementById("pm-blocks-container");
     const pmAddSetBtn = document.getElementById("pm-add-set");
     const pmAddNoteBtn = document.getElementById("pm-add-note");
     const pmSearch = document.getElementById("pm-search");
-
-    // Mock data (postupně nahradíš těmi z DB)
-    const mockRepertoire = [
-        { id: "s1", number: "15", title: "Smells Like Teen Spirit", artist: "Nirvana", singer: "Adam", time: 270 },
-        { id: "s2", number: "42", title: "Hotel California", artist: "The Eagles", singer: "Adam", time: 390 },
-        { id: "s3", number: "07", title: "Billie Jean", artist: "Michael Jackson", singer: "Eva", time: 294 },
-        { id: "s4", number: "99", title: "Bohemian Rhapsody", artist: "Queen", singer: "Adam", time: 355 },
-        { id: "s5", number: "33", title: "Wonderwall", artist: "Oasis", singer: "Eva", time: 258 },
-        { id: "s6", number: "18", title: "Sweet Child O' Mine", artist: "Guns N' Roses", singer: "Adam", time: 356 },
-        { id: "s7", number: "64", title: "Don't Stop Believin'", artist: "Journey", singer: "Eva", time: 251 },
-        { id: "s8", number: "21", title: "Livin' on a Prayer", artist: "Bon Jovi", singer: "Adam", time: 249 }
-    ];
 
     function formatTime(seconds) {
         const m = Math.floor(seconds / 60);
@@ -490,7 +557,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             s.title.toLowerCase().includes(query.toLowerCase()) ||
             s.artist.toLowerCase().includes(query.toLowerCase())
         );
+
+        let currentCategory = "";
+
         filtered.forEach(song => {
+            if (song.category !== currentCategory) {
+                currentCategory = song.category;
+                const headLi = document.createElement("li");
+                headLi.style.cssText = "background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.75rem; font-weight: 800; color: var(--text-muted); padding: 4px 10px; margin-bottom: 5px; border-radius: 4px; border: 1px solid var(--glass-border); text-align: center;";
+                headLi.textContent = song.category === "Standard" ? "Běžný repertoár" : "Nezařazeno - " + song.category;
+                pmSourceList.appendChild(headLi);
+            }
+
             const li = document.createElement("li");
             li.className = "pm-item";
             li.dataset.duration = song.time;
@@ -666,7 +744,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function buildPdfDefinition() {
         const listTitle = document.getElementById("pm-playlist-title").value || "KAPELNÍ PLAYLIST";
-        const headerTitle = `SET LIST – ${listTitle.toUpperCase()}`;
+        const headerTitle = listTitle;
 
         const blocks = document.querySelectorAll(".pm-block");
         const showBlockTitle = blocks.length > 1;
@@ -821,7 +899,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById("pm-export-pdf").textContent = "Generuji...";
         await loadCustomFonts();
         const docDef = buildPdfDefinition();
-        const title = document.getElementById("pm-playlist-title").value || "Playlist";
+        const rawTitle = document.getElementById("pm-playlist-title").value || "Neznámý";
+        const title = `Playlist - ${rawTitle}`;
         pdfMake.createPdf(docDef).download(`${title}.pdf`);
         document.getElementById("pm-export-pdf").textContent = "Export PDF";
     });
@@ -840,7 +919,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             await loadCustomFonts();
 
             const docDef = buildPdfDefinition();
-            const title = document.getElementById("pm-playlist-title").value || "Playlist";
+            const rawTitle = document.getElementById("pm-playlist-title").value || "Neznámý";
+            const title = `Playlist - ${rawTitle}`;
 
             pdfMake.createPdf(docDef).getBlob(async (blob) => {
                 const formData = new FormData();
@@ -913,10 +993,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const select = document.getElementById("pm-event-select");
                 if (!select) return;
 
-                select.innerHTML = '<option value="">-- Volný návrh --</option>';
+                select.innerHTML = '<option value="" style="color: black;">-- Volný návrh (Nezařazeno) --</option>';
                 events.forEach(ev => {
                     const opt = document.createElement("option");
                     opt.value = ev.id;
+                    opt.style.color = "black";
                     const d = new Date(ev.date).toLocaleDateString("cs-CZ");
                     opt.textContent = `${d} - ${ev.title}`;
                     select.appendChild(opt);
@@ -928,8 +1009,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     if (select.selectedIndex > 0) {
                         const txt = select.options[select.selectedIndex].textContent;
-                        const titleOnly = txt.split(" - ").slice(1).join(" - ") || txt;
-                        if (pmTitle) pmTitle.value = titleOnly;
+                        if (pmTitle) pmTitle.value = txt; // Keeps Date + Title
                         if (pmExportCalBtn) {
                             pmExportCalBtn.disabled = false;
                             pmExportCalBtn.title = "";

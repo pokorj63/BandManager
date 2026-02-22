@@ -907,3 +907,61 @@ a {
 .target-list .pm-item:hover .btn-remove-item {
     display: block;
 }
+
+/* MUSIC ARCHIVATOR STYLES */
+.ma-list-container {
+    padding: 20px;
+    overflow-x: auto;
+}
+
+.ma-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--text-main);
+}
+
+.ma-table th {
+    text-align: left;
+    padding: 12px 10px;
+    border-bottom: 2px solid var(--accent);
+    color: var(--text-main);
+    font-weight: 800;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.ma-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--glass-border);
+    vertical-align: middle;
+}
+
+.ma-table tr:hover td {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.ma-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: opacity 0.2s;
+}
+
+.ma-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
+.part-missing {
+    display: inline-block;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-right: 4px;
+    margin-bottom: 4px;
+}

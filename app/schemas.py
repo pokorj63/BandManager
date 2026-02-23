@@ -47,6 +47,19 @@ class EventSubUpdate(BaseModel):
     is_secured: Optional[bool] = None
     note: Optional[str] = None
 
+class MediaItemOut(BaseModel):
+    id: int
+    event_id: int
+    drive_file_id: str
+    name: str
+    mime_type: str
+    size_bytes: int | None
+    category: str
+    created_at: dt_datetime
+
+    class Config:
+        from_attributes = True
+
 class EventOut(BaseModel):
     id: int
     title: str
@@ -64,19 +77,6 @@ class EventOut(BaseModel):
     
     subs: list[EventSubOut] = []
     media_items: list[MediaItemOut] = []
-
-    class Config:
-        from_attributes = True
-        
-class MediaItemOut(BaseModel):
-    id: int
-    event_id: int
-    drive_file_id: str
-    name: str
-    mime_type: str
-    size_bytes: int | None
-    category: str
-    created_at: datetime
 
     class Config:
         from_attributes = True

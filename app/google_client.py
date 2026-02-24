@@ -36,9 +36,7 @@ def drive_service(creds: Credentials):
     return build("drive", "v3", credentials=creds)
 
 
-
-
-def _find_folder_id(drv, parent_id: str, name: str) -> Optional[str]:
+def find_folder_id(drv, parent_id: str, name: str) -> Optional[str]:
     q = (
         f"mimeType='application/vnd.google-apps.folder' "
         f"and name='{name}' "
@@ -49,31 +47,44 @@ def _find_folder_id(drv, parent_id: str, name: str) -> Optional[str]:
     files = res.get("files", [])
     return files[0]["id"] if files else None
 
-def _ensure_folder(drv, parent_id: str, name: str) -> str:
-    existing = _find_folder_id(drv, parent_id, name)
+
+def ensure_folder(drv, parent_id: str, name: str) -> str:
+    existing = find_folder_id(drv, parent_id, name)
     if existing:
         return existing
-    created = drv.files().create(
-        body={
-            "name": name,
-            "mimeType": "application/vnd.google-apps.folder",
-            "parents": [parent_id],
-        },
-        fields="id",
-    ).execute()
+    created = (
+        drv.files()
+        .create(
+            body={
+                "name": name,
+                "mimeType": "application/vnd.google-apps.folder",
+                "parents": [parent_id],
+            },
+            fields="id",
+        )
+        .execute()
+    )
     return created["id"]
 
+
 def ensure_media_subfolders(drv, event_drive_folder_id: str) -> dict[str, str]:
-    media_id = _ensure_folder(drv, event_drive_folder_id, "Media")
-    photos_id = _ensure_folder(drv, media_id, "Photos")
-    videos_id = _ensure_folder(drv, media_id, "Videos")
+    media_id = ensure_folder(drv, event_drive_folder_id, "Media")
+    photos_id = ensure_folder(drv, media_id, "Photos")
+    videos_id = ensure_folder(drv, media_id, "Videos")
     return {"media": media_id, "photos": photos_id, "videos": videos_id}
 
-def upload_file_to_drive(drv, folder_id: str, upload_file, filename: str, mime_type: str) -> dict:
+
+def upload_file_to_drive(
+    drv, folder_id: str, upload_file, filename: str, mime_type: str
+) -> dict:
     media = MediaIoBaseUpload(upload_file, mimetype=mime_type, resumable=False)
-    created = drv.files().create(
-        body={"name": filename, "parents": [folder_id]},
-        media_body=media,
-        fields="id,name,mimeType,size,webViewLink,webContentLink",
-    ).execute()
+    created = (
+        drv.files()
+        .create(
+            body={"name": filename, "parents": [folder_id]},
+            media_body=media,
+            fields="id,name,mimeType,size,webViewLink,webContentLink",
+        )
+        .execute()
+    )
     return created

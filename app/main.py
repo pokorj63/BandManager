@@ -10,6 +10,7 @@ from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 from app.routers.auth import router as auth_router
 from app.routers.events import router as events_router
+from app.routers.music_archivator import router as ma_router
 
 from app.db import engine
 from app.models import Base
@@ -23,7 +24,9 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET or not GOOGLE_REDIRECT_URI:
-    raise RuntimeError("Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI in .env")
+    raise RuntimeError(
+        "Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI in .env"
+    )
 
 app = FastAPI()
 
@@ -37,6 +40,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(events_router)
+app.include_router(ma_router)
 
 
 oauth = OAuth()
@@ -54,15 +58,14 @@ app.state.oauth = oauth
 app.state.google_redirect_uri = GOOGLE_REDIRECT_URI
 
 
-
-
 import os
+
 if not os.path.exists("frontend"):
     os.makedirs("frontend")
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
+
 @app.get("/")
 def root():
     return FileResponse("frontend/index.html")
-

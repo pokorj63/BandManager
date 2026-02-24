@@ -1,5 +1,16 @@
 from __future__ import annotations
-from sqlalchemy import String, Date, Time, Text, Column, Integer, ForeignKey, UniqueConstraint, DateTime, Boolean
+from sqlalchemy import (
+    String,
+    Date,
+    Time,
+    Text,
+    Column,
+    Integer,
+    ForeignKey,
+    UniqueConstraint,
+    DateTime,
+    Boolean,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
@@ -24,27 +35,41 @@ class Event(Base):
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     calendar_event_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     drive_folder_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    
-    media_items = relationship("MediaItem", back_populates="event", cascade="all, delete-orphan")
-    subs = relationship("EventSub", back_populates="event", cascade="all, delete-orphan")
-    
+
+    media_items = relationship(
+        "MediaItem", back_populates="event", cascade="all, delete-orphan"
+    )
+    subs = relationship(
+        "EventSub", back_populates="event", cascade="all, delete-orphan"
+    )
+
+
 class EventSub(Base):
     __tablename__ = "event_subs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    event_id: Mapped[int] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), index=True
+    )
     role: Mapped[str] = mapped_column(String(100))  # např. 'Baskytara'
-    is_secured: Mapped[bool] = mapped_column(Boolean, default=False)  # False = shání se, True = zajištěn
-    note: Mapped[str | None] = mapped_column(String(200), nullable=True) # např. jméno záskoku
+    is_secured: Mapped[bool] = mapped_column(
+        Boolean, default=False
+    )  # False = shání se, True = zajištěn
+    note: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )  # např. jméno záskoku
 
     event: Mapped["Event"] = relationship("Event", back_populates="subs")
-    
+
+
 class MediaItem(Base):  # Base použij stejný jako pro Event
     __tablename__ = "media_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    event_id: Mapped[int] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), index=True
+    )
 
     drive_file_id: Mapped[str] = mapped_column(String, unique=True, index=True)
     name: Mapped[str] = mapped_column(String)
@@ -59,3 +84,23 @@ class MediaItem(Base):  # Base použij stejný jako pro Event
     event: Mapped["Event"] = relationship("Event", back_populates="media_items")
 
 
+class Instrument(Base):
+    __tablename__ = "instruments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_email: Mapped[str] = mapped_column(String(200), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    category: Mapped[str] = mapped_column(String(50))  # 'Zpěvy', 'Rytmika', 'Dechy'
+    is_tracked: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Song(Base):
+    __tablename__ = "songs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_email: Mapped[str] = mapped_column(String(200), index=True)
+    number: Mapped[str] = mapped_column(String(20), index=True)  # "0", "42", "N"
+    title: Mapped[str] = mapped_column(String(200))
+    singer: Mapped[str] = mapped_column(String(100))
+    duration: Mapped[int] = mapped_column(Integer)  # v sekundách
+    drive_folder_id: Mapped[str | None] = mapped_column(String(200), nullable=True)

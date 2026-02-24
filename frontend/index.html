@@ -255,7 +255,7 @@
                     <header class="section-header flex-header" style="margin-bottom: 20px;">
                         <div>
                             <h2>MusicArchivator <button class="btn-help"
-                                    onclick="window.showMirek('MusicArchivator je knihovna tvých not a midi souborů. Tady se bude dát procházet, vyhledávat a třídit celou zásobu rozepsaných skladeb.')"
+                                    onclick="window.showMirek('MusicArchivator je knihovna tvých not a midi souborů. Tady se bude dá procházet, vyhledávat a třídit celou zásobu rozepsaných skladeb.')"
                                     title="Nápověda">?</button></h2>
                             <div class="ma-top-links" style="display: flex; gap: 15px; margin-top: 10px;">
                                 <a href="#" id="ma-link-current-list" class="btn btn-secondary"
@@ -273,6 +273,67 @@
                             <button class="btn btn-primary" id="ma-btn-add-song">+ Přidat skladbu</button>
                         </div>
                     </header>
+
+                    <!-- Instrument Setup Form -->
+                    <div id="ma-instrument-setup" class="form-container glass hidden" style="margin-bottom: 30px;">
+                        <h3>Nastavení nástrojů v kapele</h3>
+                        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
+                            Definuj nástroje, které má tvoje kapela. 'Sledované' nástroje budou vyžadovány u každé skladby v archivu.
+                        </p>
+                        
+                        <div class="instrument-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 25px;">
+                            <div class="instrument-category-col">
+                                <h4 style="color: var(--accent); margin-bottom: 10px;">Zpěvy</h4>
+                                <div id="inst-list-vocals" class="inst-list"></div>
+                                <button class="btn btn-secondary btn-small" onclick="addInstrumentUI('Zpěvy')">+ Přidat zpěv</button>
+                            </div>
+                            <div class="instrument-category-col">
+                                <h4 style="color: var(--accent); margin-bottom: 10px;">Rytmika</h4>
+                                <div id="inst-list-rhythm" class="inst-list"></div>
+                                <button class="btn btn-secondary btn-small" onclick="addInstrumentUI('Rytmika')">+ Přidat rytmiku</button>
+                            </div>
+                            <div class="instrument-category-col">
+                                <h4 style="color: var(--accent); margin-bottom: 10px;">Dechy</h4>
+                                <div id="inst-list-winds" class="inst-list"></div>
+                                <button class="btn btn-secondary btn-small" onclick="addInstrumentUI('Dechy')">+ Přidat dech</button>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="ma-btn-cancel-instruments" class="btn">Zahodit změny</button>
+                            <button type="button" id="ma-btn-save-instruments" class="btn btn-primary">Uložit nastavení</button>
+                        </div>
+                    </div>
+
+                    <div id="ma-add-song-form" class="form-container glass hidden" style="margin-bottom: 30px;">
+                        <h3>Přidat novou skladbu</h3>
+                        <form id="ma-form-song">
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 0 0 100px;">
+                                    <label>Číslo (0.. / N)</label>
+                                    <input type="text" id="ma-song-number" required placeholder="N" maxlength="10">
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Název skladby</label>
+                                    <input type="text" id="ma-song-title" required placeholder="Např. Billie Jean">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Zpěvák</label>
+                                    <input type="text" id="ma-song-singer" placeholder="Kdo zpívá?">
+                                </div>
+                                <div class="form-group">
+                                    <label>Délka (min:sek)</label>
+                                    <input type="text" id="ma-song-duration" placeholder="3:45">
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" id="ma-btn-cancel-add-song" class="btn">Zrušit</button>
+                                <button type="submit" class="btn btn-primary">Vytvořit skladbu a složku</button>
+                            </div>
+                        </form>
+                    </div>
 
                     <div class="ma-list-container panel glass">
                         <table class="ma-table">

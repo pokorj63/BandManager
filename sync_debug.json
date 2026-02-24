@@ -1,22 +1,23 @@
 {
   "kind": "calendar#events",
-  "etag": "\"p32vu575spjmp40o\"",
+  "etag": "\"p337olddltbp940o\"",
   "summary": "BandManager DEV",
   "description": "",
-  "updated": "2026-02-22T17:13:56.341Z",
+  "updated": "2026-02-24T19:11:13.814Z",
   "timeZone": "Europe/Prague",
   "accessRole": "owner",
   "defaultReminders": [],
   "items": [
     {
       "kind": "calendar#event",
-      "etag": "\"3543560872682110\"",
-      "id": "5toi34p91lsiqu6g0ntpk99lrt",
+      "etag": "\"3543920547629726\"",
+      "id": "tj5m6805a51gf294pq96drcgm0",
       "status": "confirmed",
-      "htmlLink": "https://www.google.com/calendar/event?eid=NXRvaTM0cDkxbHNpcXU2ZzBudHBrOTlscnQgZTA3ZTgxZTExY2ZjYTBlN2FmOGI5MjI2NDY3MGZhNTUyNmRlMTBhODliNTAyYzBmNGM1OGE4NjM0ZmEwNjgyYkBn",
-      "created": "2026-02-22T17:13:49.000Z",
-      "updated": "2026-02-22T17:13:56.341Z",
-      "summary": "hihi",
+      "htmlLink": "https://www.google.com/calendar/event?eid=dGo1bTY4MDVhNTFnZjI5NHBxOTZkcmNnbTAgZTA3ZTgxZTExY2ZjYTBlN2FmOGI5MjI2NDY3MGZhNTUyNmRlMTBhODliNTAyYzBmNGM1OGE4NjM0ZmEwNjgyYkBn",
+      "created": "2026-02-24T19:08:42.000Z",
+      "updated": "2026-02-24T19:11:13.814Z",
+      "summary": "Za císaře pána",
+      "location": "MKD",
       "creator": {
         "email": "kuna.pokorny2002@gmail.com"
       },
@@ -26,17 +27,27 @@
         "self": true
       },
       "start": {
-        "date": "2026-02-28"
+        "dateTime": "2026-03-05T20:08:00+01:00",
+        "timeZone": "Europe/Prague"
       },
       "end": {
-        "date": "2026-03-01"
+        "dateTime": "2026-03-05T23:10:00+01:00",
+        "timeZone": "Europe/Prague"
       },
-      "transparency": "transparent",
-      "iCalUID": "5toi34p91lsiqu6g0ntpk99lrt@google.com",
+      "iCalUID": "tj5m6805a51gf294pq96drcgm0@google.com",
       "sequence": 0,
       "reminders": {
-        "useDefault": false
+        "useDefault": true
       },
+      "attachments": [
+        {
+          "fileUrl": "https://drive.google.com/file/d/1W9IRIdr4zWns3-mWP2amguYsyGEbMYDp/view?usp=drivesdk",
+          "title": "Playlist - 28. 2. 2026 - Vivat Masaryk.pdf",
+          "mimeType": "application/pdf",
+          "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/pdf",
+          "fileId": "1W9IRIdr4zWns3-mWP2amguYsyGEbMYDp"
+        }
+      ],
       "eventType": "default"
     }
   ]

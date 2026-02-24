@@ -38,14 +38,17 @@ class EventSubOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class EventSubCreate(BaseModel):
     role: str
     is_secured: bool = False
     note: Optional[str] = None
 
+
 class EventSubUpdate(BaseModel):
     is_secured: Optional[bool] = None
     note: Optional[str] = None
+
 
 class MediaItemOut(BaseModel):
     id: int
@@ -59,6 +62,7 @@ class MediaItemOut(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class EventOut(BaseModel):
     id: int
@@ -74,9 +78,48 @@ class EventOut(BaseModel):
 
     calendar_event_id: Optional[str] = None
     drive_folder_id: Optional[str] = None
-    
+
     subs: list[EventSubOut] = []
     media_items: list[MediaItemOut] = []
 
     class Config:
         from_attributes = True
+
+
+class InstrumentOut(BaseModel):
+    id: int
+    name: str
+    category: str
+    is_tracked: bool
+
+    class Config:
+        from_attributes = True
+
+
+class InstrumentCreate(BaseModel):
+    name: str
+    category: str
+    is_tracked: bool = True
+
+
+class InstrumentSetup(BaseModel):
+    instruments: list[InstrumentCreate]
+
+
+class SongOut(BaseModel):
+    id: int
+    number: str
+    title: str
+    singer: str
+    duration: int
+    drive_folder_id: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class SongCreate(BaseModel):
+    number: str
+    title: str
+    singer: str
+    duration: int

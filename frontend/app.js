@@ -190,7 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!currentEventId) return;
     if (
       !(await window.mirekConfirm(
-        "Opravdu smazat tuto událost? Akce je nevratná.",
+        "Opravdu smazat tuto událost? V kalendáři bude smazána, ale POZOR: složka na Google Disku se všemi soubory (noty, audio) zůstane zachována pro jistotu.",
       ))
     )
       return;
@@ -653,141 +653,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "ma-btn-save-instruments",
   );
 
-  // Rozšířená Mock data (postupně nahradíš těmi z DB)
-  const mockRepertoire = [
-    {
-      id: "s1",
-      number: "07",
-      category: "Standard",
-      title: "Billie Jean",
-      artist: "Michael Jackson",
-      singer: "Eva",
-      time: 294,
-      missingParts: ["Baskytara"],
-      driveLink: "#",
-    },
-    {
-      id: "s2",
-      number: "15",
-      category: "Standard",
-      title: "Smells Like Teen Spirit",
-      artist: "Nirvana",
-      singer: "Adam",
-      time: 270,
-      missingParts: ["Zpěv", "Klávesy"],
-      driveLink: "#",
-    },
-    {
-      id: "s3",
-      number: "18",
-      category: "Standard",
-      title: "Sweet Child O' Mine",
-      artist: "Guns N' Roses",
-      singer: "Adam",
-      time: 356,
-      missingParts: ["Bicí"],
-      driveLink: "#",
-    },
-    {
-      id: "s4",
-      number: "21",
-      category: "Standard",
-      title: "Livin' on a Prayer",
-      artist: "Bon Jovi",
-      singer: "Adam",
-      time: 249,
-      missingParts: ["Klávesy"],
-      driveLink: "#",
-    },
-    {
-      id: "s5",
-      number: "33",
-      category: "Standard",
-      title: "Wonderwall",
-      artist: "Oasis",
-      singer: "Eva",
-      time: 258,
-      missingParts: [],
-      driveLink: "#",
-    },
-    {
-      id: "s6",
-      number: "42",
-      category: "Standard",
-      title: "Hotel California",
-      artist: "The Eagles",
-      singer: "Adam",
-      time: 390,
-      missingParts: [],
-      driveLink: "#",
-    },
-    {
-      id: "s7",
-      number: "64",
-      category: "Standard",
-      title: "Don't Stop Believin'",
-      artist: "Journey",
-      singer: "Eva",
-      time: 251,
-      missingParts: [],
-      driveLink: "#",
-    },
-    {
-      id: "s8",
-      number: "99",
-      category: "Standard",
-      title: "Bohemian Rhapsody",
-      artist: "Queen",
-      singer: "Adam",
-      time: 355,
-      missingParts: ["Vokály", "Kytara 2"],
-      driveLink: "#",
-    },
-    {
-      id: "s9",
-      number: "N",
-      category: "Plesovky",
-      title: "Schody z nebe",
-      artist: "Tereza Kerndlová",
-      singer: "Eva",
-      time: 180,
-      missingParts: [],
-      driveLink: "#",
-    },
-    {
-      id: "s10",
-      number: "N",
-      category: "Plesovky",
-      title: "Dlouhá noc",
-      artist: "Helena Vondráčková",
-      singer: "Eva",
-      time: 210,
-      missingParts: ["Klávesy"],
-      driveLink: "#",
-    },
-    {
-      id: "s11",
-      number: "N",
-      category: "Vánoční",
-      title: "Půlnoční",
-      artist: "Václav Neckář",
-      singer: "Adam",
-      time: 250,
-      missingParts: [],
-      driveLink: "#",
-    },
-    {
-      id: "s12",
-      number: "N",
-      category: "Vánoční",
-      title: "Last Christmas",
-      artist: "Wham!",
-      singer: "Adam",
-      time: 280,
-      missingParts: [],
-      driveLink: "#",
-    },
-  ];
+  // Databáze skladeb se nyní načítá dynamicky ze serveru přes loadSongs()
 
   async function loadSongs() {
     try {
@@ -815,27 +681,35 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // Seřadit: nejprve čísla vzestupně, pak N
+    // Seřadit: primárně podle kategorie (Standard první), pak podle čísla, pak N
     songs.sort((a, b) => {
-      if (a.number === "N" && b.number !== "N") return 1;
-      if (a.number !== "N" && b.number === "N") return -1;
-      if (a.number !== "N" && b.number !== "N")
-        return (parseInt(a.number) || 0) - (parseInt(b.number) || 0);
+      // Priorita kategorii: Standard je nejvýš
+      if (a.category === "Standard" && b.category !== "Standard") return -1;
+      if (a.category !== "Standard" && b.category === "Standard") return 1;
+      
+      // Pokud jsou kategorie stejné, řadíme podle čísla
+      if (a.category === b.category) {
+        if (a.number === "N" && b.number !== "N") return 1;
+        if (a.number !== "N" && b.number === "N") return -1;
+        if (a.number !== "N" && b.number !== "N")
+          return (parseInt(a.number) || 0) - (parseInt(b.number) || 0);
+      }
+      
+      // Jinak podle názvu kategorie a pak názvu písně
+      const catComp = a.category.localeCompare(b.category);
+      if (catComp !== 0) return catComp;
       return a.title.localeCompare(b.title);
     });
 
     let currentCategory = "";
 
     songs.forEach((song) => {
-      const isN = song.number === "N";
-      const catLabel = isN ? "Písně bez čísla (N)" : "Číslovaný repertoár";
-
-      if (catLabel !== currentCategory) {
-        currentCategory = catLabel;
+      if (song.category !== currentCategory) {
+        currentCategory = song.category;
         const headTr = document.createElement("tr");
         headTr.innerHTML = `
-                    <td colspan="6" style="background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.8rem; font-weight: 800; color: var(--text-muted); padding: 8px 10px;">
-                        ${catLabel}
+                    <td colspan="6" style="background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.8rem; font-weight: 800; color: var(--accent); padding: 12px 10px;">
+                        ${song.category}
                     </td>
                 `;
         maSongsTbody.appendChild(headTr);
@@ -856,7 +730,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     </a>
                 </td>
                 <td>
-                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="alert('Úprava brzy...')">✏️ Úprava</button>
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="window.openEditSongForm(${JSON.stringify(song).replace(/"/g, "&quot;")})">✏️ Úprava</button>
                 </td>
             `;
       maSongsTbody.appendChild(tr);
@@ -865,6 +739,49 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Vyvolat render při startu
   renderMA();
+
+  window.openEditSongForm = function (song) {
+    editingSongId = song.id;
+    maAddSongForm.classList.remove("hidden");
+    document.querySelector("#ma-add-song-form h3").textContent = "Upravit skladbu";
+    document.getElementById("ma-btn-submit-song").textContent = "Uložit změny";
+    document.getElementById("ma-btn-delete-song").classList.remove("hidden");
+
+    document.getElementById("ma-song-number").value = song.number;
+    document.getElementById("ma-song-title").value = song.title;
+    document.getElementById("ma-song-singer").value = song.singer;
+    document.getElementById("ma-song-category").value = song.category;
+    document.getElementById("ma-song-duration").value = formatTime(song.duration);
+
+    document
+      .querySelector(".main-content")
+      .scrollTo({ top: maAddSongForm.offsetTop - 50, behavior: "smooth" });
+  };
+
+  window.deleteSong = async function (id, title) {
+    if (
+      !(await window.mirekConfirm(
+        `Opravdu smazat skladbu "${title}"? Z databáze i PM zmizí, ale složka na Disku zůstane pro jistotu zachována.`,
+      ))
+    )
+      return;
+
+    try {
+      const res = await fetch(`/ma/songs/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        renderMA();
+        renderRepertoire();
+        maAddSongForm.classList.add("hidden");
+        editingSongId = null;
+        window.mirekAlert("Skladba byla smazána.");
+      } else {
+        window.mirekAlert("Chyba při mazání skladby.");
+      }
+    } catch (e) {
+      console.error(e);
+      window.mirekAlert("Kritická chyba při spojení.");
+    }
+  };
 
   window.addInstrumentUI = function (category, data = null) {
     const containerId =
@@ -974,12 +891,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Skladby - form logika
+  let editingSongId = null;
   const maAddSongForm = document.getElementById("ma-add-song-form");
   const maBtnAddSong = document.getElementById("ma-btn-add-song");
   const maBtnCancelAddSong = document.getElementById("ma-btn-cancel-add-song");
   const maFormSong = document.getElementById("ma-form-song");
 
   maBtnAddSong?.addEventListener("click", () => {
+    editingSongId = null;
+    maFormSong.reset();
+    document.querySelector("#ma-add-song-form h3").textContent = "Přidat novou skladbu";
+    document.getElementById("ma-btn-submit-song").textContent = "Vytvořit skladbu a složku";
+    document.getElementById("ma-btn-delete-song").classList.add("hidden");
     maAddSongForm.classList.remove("hidden");
     document
       .querySelector(".main-content")
@@ -989,10 +912,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   maBtnCancelAddSong?.addEventListener("click", () => {
     maAddSongForm.classList.add("hidden");
     maFormSong.reset();
+    editingSongId = null;
   });
 
   maFormSong?.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const btnSubmit = maFormSong.querySelector('button[type="submit"]');
+    const originalBtnText = btnSubmit.textContent;
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Vytvářím...";
 
     const durationStr = document.getElementById("ma-song-duration").value;
     const durationSec = parseDuration(durationStr);
@@ -1001,30 +930,50 @@ document.addEventListener("DOMContentLoaded", async () => {
       number: document.getElementById("ma-song-number").value,
       title: document.getElementById("ma-song-title").value,
       singer: document.getElementById("ma-song-singer").value,
+      category: document.getElementById("ma-song-category").value.trim() || "Standard",
       duration: durationSec,
     };
 
     try {
-      const res = await fetch("/ma/songs", {
-        method: "POST",
+      const url = editingSongId ? `/ma/songs/${editingSongId}` : "/ma/songs";
+      const method = editingSongId ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (res.ok) {
-        window.mirekAlert("Skladba úspěšně vytvořena i se složkou na Disku!");
+        window.mirekAlert(
+          editingSongId
+            ? "Skladba byla úspěšně upravena."
+            : "Skladba úspěšně vytvořena i se složkou na Disku!",
+        );
         maAddSongForm.classList.add("hidden");
         maFormSong.reset();
+        editingSongId = null;
         renderMA();
+        renderRepertoire();
       } else {
         const err = await res.json();
         window.mirekAlert(
-          "Chyba: " + (err.detail || "Nepodařilo se vytvořit skladbu."),
+          "Chyba: " + (err.detail || "Nepodařilo se uložit skladbu."),
         );
       }
     } catch (e) {
       console.error(e);
-      window.mirekAlert("Kritická chyba při komunikaci se serverem.");
+      window.mirekAlert("Kritická chyba při komunikaci se serverem: " + e.message);
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = originalBtnText;
+    }
+  });
+
+  document.getElementById("ma-btn-delete-song")?.addEventListener("click", () => {
+    if (editingSongId) {
+      const title = document.getElementById("ma-song-title").value;
+      window.deleteSong(editingSongId, title);
     }
   });
 
@@ -1051,13 +1000,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Render zdroje
-  function renderRepertoire(query = "") {
+  async function renderRepertoire(query = "") {
+    if (!pmSourceList) return;
+    pmSourceList.innerHTML = "<li>Načítám...</li>";
+
+    const allSongs = await loadSongs();
     pmSourceList.innerHTML = "";
-    const filtered = mockRepertoire.filter(
+
+    const filtered = allSongs.filter(
       (s) =>
         s.title.toLowerCase().includes(query.toLowerCase()) ||
-        s.artist.toLowerCase().includes(query.toLowerCase()),
+        s.singer.toLowerCase().includes(query.toLowerCase()),
     );
+
+    if (filtered.length === 0) {
+      pmSourceList.innerHTML = `<li style="padding: 10px; color: var(--text-muted); text-align: center;">Žádné skladby nenalezeny.</li>`;
+      return;
+    }
+
+    // Seřadit stejně jako v MA
+    filtered.sort((a, b) => {
+      // Priorita kategorii: Standard je nejvýš
+      if (a.category === "Standard" && b.category !== "Standard") return -1;
+      if (a.category !== "Standard" && b.category === "Standard") return 1;
+
+      // Pokud jsou kategorie stejné, řadíme podle čísla
+      if (a.category === b.category) {
+        if (a.number === "N" && b.number !== "N") return 1;
+        if (a.number !== "N" && b.number === "N") return -1;
+        if (a.number !== "N" && b.number !== "N")
+          return (parseInt(a.number) || 0) - (parseInt(b.number) || 0);
+      }
+
+      // Jinak podle názvu kategorie a pak názvu písně
+      const catComp = a.category.localeCompare(b.category);
+      if (catComp !== 0) return catComp;
+      return a.title.localeCompare(b.title);
+    });
 
     let currentCategory = "";
 
@@ -1066,17 +1045,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentCategory = song.category;
         const headLi = document.createElement("li");
         headLi.style.cssText =
-          "background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.75rem; font-weight: 800; color: var(--text-muted); padding: 4px 10px; margin-bottom: 5px; border-radius: 4px; border: 1px solid var(--glass-border); text-align: center;";
-        headLi.textContent =
-          song.category === "Standard"
-            ? "Běžný repertoár"
-            : "Nezařazeno - " + song.category;
+          "background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.75rem; font-weight: 800; color: var(--accent); padding: 4px 10px; margin-bottom: 5px; border-radius: 4px; border: 1px solid var(--glass-border); text-align: center;";
+        headLi.textContent = song.category;
         pmSourceList.appendChild(headLi);
       }
 
       const li = document.createElement("li");
       li.className = "pm-item";
-      li.dataset.duration = song.time;
+      li.dataset.duration = song.duration;
       li.dataset.num = song.number;
       li.dataset.title = song.title;
       li.dataset.singer = song.singer;
@@ -1089,7 +1065,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <span class="pm-item-artist" style="margin-left: 30px; opacity: 0.8; font-size: 0.75rem;">${song.singer}</span>
                 </div>
                 <div style="display: flex; align-items: center;">
-                    <span class="pm-item-time" style="font-size: 0.85rem;">${formatTime(song.time)}</span>
+                    <span class="pm-item-time" style="font-size: 0.85rem;">${formatTime(song.duration)}</span>
                     <button class="btn-remove-item" onclick="this.closest('li').remove(); window.updateBlockTime({target: this.closest('.target-list')});" title="Odebrat">✖</button>
                 </div>
             `;

@@ -324,13 +324,23 @@
                                     <input type="text" id="ma-song-singer" placeholder="Kdo zpívá?">
                                 </div>
                                 <div class="form-group">
+                                    <label>Kategorie</label>
+                                    <input type="text" id="ma-song-category" list="ma-category-list" placeholder="Standard">
+                                    <datalist id="ma-category-list">
+                                        <option value="Standard">
+                                        <option value="Plesovky">
+                                        <option value="Vánoční">
+                                    </datalist>
+                                </div>
+                                <div class="form-group">
                                     <label>Délka (min:sek)</label>
                                     <input type="text" id="ma-song-duration" placeholder="3:45">
                                 </div>
                             </div>
                             <div class="form-actions">
+                                <button type="button" id="ma-btn-delete-song" class="btn hidden" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; margin-right: auto;">Smazat tuto skladbu</button>
                                 <button type="button" id="ma-btn-cancel-add-song" class="btn">Zrušit</button>
-                                <button type="submit" class="btn btn-primary">Vytvořit skladbu a složku</button>
+                                <button type="submit" class="btn btn-primary" id="ma-btn-submit-song">Vytvořit skladbu a složku</button>
                             </div>
                         </form>
                     </div>

@@ -11,6 +11,7 @@ from app.schemas import (
     InstrumentCreate,
     SongOut,
     SongCreate,
+    SongUpdate,
 )
 from app.token_store import TOKENS
 from app.google_client import drive_service, get_credentials_from_session, ensure_folder
@@ -64,47 +65,130 @@ def list_songs(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/songs", response_model=SongOut)
 def create_song(payload: SongCreate, request: Request, db: Session = Depends(get_db)):
-    email = get_user_email(request)
+    try:
+        email = get_user_email(request)
 
-    # Validace čísla
-    num = payload.number.strip()
-    if num.upper() == "N":
-        num = "N"
-    elif not num.isdigit():
-        raise HTTPException(
-            status_code=400, detail="Číslo písně musí být celé číslo nebo 'N'"
-        )
-
-    if num != "N":
-        existing = (
-            db.query(Song).filter(Song.owner_email == email, Song.number == num).first()
-        )
-        if existing:
+        # Validace čísla
+        num = payload.number.strip()
+        if num.upper() == "N":
+            num = "N"
+        elif not num.isdigit():
             raise HTTPException(
-                status_code=400, detail=f"Skladba s číslem {num} již existuje"
+                status_code=400, detail="Číslo písně musí být celé číslo nebo 'N'"
             )
 
-    # Google Drive Logika
-    sid = request.session.get("sid")
-    token = TOKENS[sid]
-    creds = get_credentials_from_session(token)
-    drv = drive_service(creds)
+        if num != "N":
+            existing = (
+                db.query(Song)
+                .filter(Song.owner_email == email, Song.number == num)
+                .first()
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=400, detail=f"Skladba s číslem {num} již existuje"
+                )
 
-    root_id = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
-    noty_folder_id = ensure_folder(drv, root_id, "Noty - podle skladby")
+        # Google Drive Logika
+        sid = request.session.get("sid")
+        token_data = TOKENS[sid]
+        creds = get_credentials_from_session(token_data["token"])
+        drv = drive_service(creds)
 
-    song_folder_name = f"{num} {payload.title}"
-    song_folder_id = ensure_folder(drv, noty_folder_id, song_folder_name)
+        root_id = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
+        noty_folder_id = ensure_folder(drv, root_id, "Noty - podle skladby")
 
-    new_song = Song(
-        owner_email=email,
-        number=num,
-        title=payload.title,
-        singer=payload.singer,
-        duration=payload.duration,
-        drive_folder_id=song_folder_id,
-    )
-    db.add(new_song)
+        song_folder_name = f"{num} {payload.title}"
+        song_folder_id = ensure_folder(drv, noty_folder_id, song_folder_name)
+
+        new_song = Song(
+            owner_email=email,
+            number=num,
+            title=payload.title,
+            singer=payload.singer,
+            duration=payload.duration,
+            category=payload.category,
+            drive_folder_id=song_folder_id,
+        )
+        db.add(new_song)
+        db.commit()
+        db.refresh(new_song)
+        return new_song
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"MA Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/songs/{song_id}")
+def delete_song(song_id: int, request: Request, db: Session = Depends(get_db)):
+    email = get_user_email(request)
+    song = db.query(Song).filter(Song.id == song_id, Song.owner_email == email).first()
+    if not song:
+        raise HTTPException(status_code=404, detail="Skladba nenalezena")
+
+    db.delete(song)
     db.commit()
-    db.refresh(new_song)
-    return new_song
+    return {"status": "ok"}
+
+
+@router.patch("/songs/{song_id}", response_model=SongOut)
+def update_song(
+    song_id: int, payload: SongUpdate, request: Request, db: Session = Depends(get_db)
+):
+    email = get_user_email(request)
+    song = db.query(Song).filter(Song.id == song_id, Song.owner_email == email).first()
+    if not song:
+        raise HTTPException(status_code=404, detail="Skladba nenalezena")
+
+    if payload.number is not None:
+        num = payload.number.strip()
+        if num.upper() == "N":
+            num = "N"
+        elif not num.isdigit():
+            raise HTTPException(
+                status_code=400, detail="Číslo písně musí být celé číslo nebo 'N'"
+            )
+
+        if num != "N" and num != song.number:
+            existing = (
+                db.query(Song)
+                .filter(Song.owner_email == email, Song.number == num)
+                .first()
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=400, detail=f"Skladba s číslem {num} již existuje"
+                )
+
+        song.number = num
+
+    if payload.title is not None:
+        song.title = payload.title
+    if payload.singer is not None:
+        song.singer = payload.singer
+    if payload.duration is not None:
+        song.duration = payload.duration
+    if payload.category is not None:
+        song.category = payload.category
+
+    # Přejmenování složky na Disku, pokud se změnilo číslo nebo název
+    if (
+        payload.number is not None or payload.title is not None
+    ) and song.drive_folder_id:
+        try:
+            sid = request.session.get("sid")
+            token_data = TOKENS[sid]
+            creds = get_credentials_from_session(token_data["token"])
+            drv = drive_service(creds)
+
+            new_name = f"{song.number} {song.title}"
+            drv.files().update(
+                fileId=song.drive_folder_id, body={"name": new_name}
+            ).execute()
+        except Exception as e:
+            print(f"Drive rename error: {e}")
+
+    db.commit()
+    db.refresh(song)
+    return song

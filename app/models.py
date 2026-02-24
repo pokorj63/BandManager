@@ -103,4 +103,5 @@ class Song(Base):
     title: Mapped[str] = mapped_column(String(200))
     singer: Mapped[str] = mapped_column(String(100))
     duration: Mapped[int] = mapped_column(Integer)  # v sekundách
+    category: Mapped[str] = mapped_column(String(50), default="Standard", index=True)
     drive_folder_id: Mapped[str | None] = mapped_column(String(200), nullable=True)

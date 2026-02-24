@@ -112,6 +112,7 @@ class SongOut(BaseModel):
     title: str
     singer: str
     duration: int
+    category: str
     drive_folder_id: Optional[str]
 
     class Config:
@@ -123,3 +124,12 @@ class SongCreate(BaseModel):
     title: str
     singer: str
     duration: int
+    category: str = "Standard"
+
+
+class SongUpdate(BaseModel):
+    number: Optional[str] = None
+    title: Optional[str] = None
+    singer: Optional[str] = None
+    duration: Optional[int] = None
+    category: Optional[str] = None

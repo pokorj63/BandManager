@@ -18,13 +18,18 @@ async def google_login(request: Request):
     now = time.time()
     last = request.session.get("login_started_at")
     if last and (now - float(last)) < LOGIN_GUARD_SECONDS:
-        raise HTTPException(status_code=429, detail="Login already started. Please wait a moment and try again.")
+        raise HTTPException(
+            status_code=429,
+            detail="Login already started. Please wait a moment and try again.",
+        )
     request.session["login_started_at"] = now
 
     # OAuth client je uložen v app.state.oauth (nastavíme v main.py)
     oauth = request.app.state.oauth
     redirect_uri = request.app.state.google_redirect_uri
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    return await oauth.google.authorize_redirect(
+        request, redirect_uri, access_type="offline", prompt="consent"
+    )
 
 
 @router.get("/google/callback")

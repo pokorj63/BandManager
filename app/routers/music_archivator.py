@@ -23,6 +23,7 @@ from app.google_client import (
     ensure_folder,
     upload_file_to_drive,
     update_or_create_file,
+    _escape_q,
 )
 from docx import Document
 from docx.shared import Pt, Cm
@@ -349,8 +350,9 @@ async def upload_song_file(
                 shortcut_name = f"{song.number} {song.title}{ext}"
 
                 # 4. Smazat starého zástupce, pokud existuje, abychom neměli duplicity
+                safe_shortcut_name = _escape_q(shortcut_name)
                 q_old = (
-                    f"name='{shortcut_name}' "
+                    f"name='{safe_shortcut_name}' "
                     f"and '{inst_folder_id}' in parents "
                     f"and mimeType='application/vnd.google-apps.shortcut' "
                     f"and trashed=false"

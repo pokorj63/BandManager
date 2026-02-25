@@ -2,10 +2,14 @@
 .venv/
 __pycache__/
 *.pyc
+.mypy_cache/
 
-# Environment
+# Environment (Railway nastaví tyto proměnné přes dashboard)
 .env
 .env.*
+
+# Databáze (lokální SQLite - na Railway bude nová prázdná DB)
+# bandmanager.db  <-- odkomentuj pokud chceš existující data nahrát
 
 # OS / editor
 .DS_Store

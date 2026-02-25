@@ -1,0 +1,38 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtuální prostředí
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Git
+.git/
+.gitignore
+
+# Environment variables (Railway je nastaví přes dashboard)
+.env
+.env.*
+
+# Mypy cache
+.mypy_cache/
+
+# OS soubory
+.DS_Store
+Thumbs.db
+
+# Lokální skripty
+restart_server.bat
+restart_server.py
+
+# uv lock (nepotřebujeme v obrazu)
+uv.lock

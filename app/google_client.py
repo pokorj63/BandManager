@@ -36,10 +36,16 @@ def drive_service(creds: Credentials):
     return build("drive", "v3", credentials=creds)
 
 
+def _escape_q(value: str) -> str:
+    """Escape apostrophes in Google Drive API query strings."""
+    return value.replace("'", "\\'")
+
+
 def find_folder_id(drv, parent_id: str, name: str) -> Optional[str]:
+    safe_name = _escape_q(name)
     q = (
         f"mimeType='application/vnd.google-apps.folder' "
-        f"and name='{name}' "
+        f"and name='{safe_name}' "
         f"and '{parent_id}' in parents "
         f"and trashed=false"
     )
@@ -92,7 +98,8 @@ def upload_file_to_drive(
 
 
 def find_file_id(drv, parent_id: str, name: str) -> Optional[str]:
-    q = f"name='{name}' " f"and '{parent_id}' in parents " f"and trashed=false"
+    safe_name = _escape_q(name)
+    q = f"name='{safe_name}' " f"and '{parent_id}' in parents " f"and trashed=false"
     res = drv.files().list(q=q, fields="files(id,name)", pageSize=10).execute()
     files = res.get("files", [])
     return files[0]["id"] if files else None

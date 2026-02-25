@@ -1081,7 +1081,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       number: document.getElementById("ma-song-number").value,
       title: document.getElementById("ma-song-title").value,
       singer: document.getElementById("ma-song-singer").value,
-      category: document.getElementById("ma-song-category").value.trim() || "Standard",
+      category: document.getElementById("ma-song-category").value.trim() || "Standardní repertoár",
       duration: durationSec,
     };
 

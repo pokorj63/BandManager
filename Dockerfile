@@ -19,8 +19,5 @@ COPY . .
 # Vytvořit složku pro frontend pokud neexistuje (main.py to kontroluje)
 RUN mkdir -p frontend
 
-# Port, na kterém bude app naslouchat (Railway posílá $PORT)
-ENV PORT=8000
-
-# Spuštění aplikace
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+# Spuštění aplikace (sh -c zajistí správnou expanzi $PORT)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $PORT"]

@@ -105,3 +105,26 @@ class Song(Base):
     duration: Mapped[int] = mapped_column(Integer)  # v sekundách
     category: Mapped[str] = mapped_column(String(50), default="Standard", index=True)
     drive_folder_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    files = relationship(
+        "SongFile", back_populates="song", cascade="all, delete-orphan"
+    )
+
+
+class SongFile(Base):
+    __tablename__ = "song_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    song_id: Mapped[int] = mapped_column(
+        ForeignKey("songs.id", ondelete="CASCADE"), index=True
+    )
+    drive_file_id: Mapped[str] = mapped_column(String, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String)  # Název na disku
+    file_type: Mapped[str] = mapped_column(
+        String(20)
+    )  # 'part' | 'score' | 'audio' | 'other'
+    instrument_name: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )  # Pro file_type == 'part'
+
+    song: Mapped["Song"] = relationship("Song", back_populates="files")

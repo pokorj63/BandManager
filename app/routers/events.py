@@ -22,7 +22,8 @@ from app.google_client import (
     get_credentials_from_session,
     calendar_service,
     drive_service,
-    ensure_media_subfolders,
+    ensure_folder,
+    ensure_event_subfolders,
     upload_file_to_drive,
 )
 
@@ -136,13 +137,14 @@ def create_event(payload: EventCreate, request: Request, db: Session = Depends(g
     ev.calendar_event_id = created["id"]
 
     event_folder_name = f"{ev.date.isoformat()} {ev.title}"
+    koncerty_folder_id = ensure_folder(drv, drive_root, "Koncerty")
     event_folder = (
         drv.files()
         .create(
             body={
                 "name": event_folder_name,
                 "mimeType": "application/vnd.google-apps.folder",
-                "parents": [drive_root],
+                "parents": [koncerty_folder_id],
             },
             fields="id",
         )
@@ -150,36 +152,8 @@ def create_event(payload: EventCreate, request: Request, db: Session = Depends(g
     )
     ev.drive_folder_id = event_folder["id"]
 
-    media = (
-        drv.files()
-        .create(
-            body={
-                "name": "Media",
-                "mimeType": "application/vnd.google-apps.folder",
-                "parents": [ev.drive_folder_id],
-            },
-            fields="id",
-        )
-        .execute()
-    )
-    media_id = media["id"]
-
-    drv.files().create(
-        body={
-            "name": "Photos",
-            "mimeType": "application/vnd.google-apps.folder",
-            "parents": [media_id],
-        },
-        fields="id",
-    ).execute()
-    drv.files().create(
-        body={
-            "name": "Videos",
-            "mimeType": "application/vnd.google-apps.folder",
-            "parents": [media_id],
-        },
-        fields="id",
-    ).execute()
+    # Create subfolders Fotky, Videa, Audio directly in the event folder
+    ensure_event_subfolders(drv, ev.drive_folder_id)
 
     db.add(ev)
     db.commit()
@@ -295,26 +269,27 @@ def attach_playlist_to_calendar(
         # 1. Kontrola / vytvoření složky události
         if not ev.drive_folder_id:
             folder_name = f"{ev.date} {ev.title}"
+            koncerty_folder_id = ensure_folder(drv, drive_root, "Koncerty")
             folder_metadata = {
                 "name": folder_name,
                 "mimeType": "application/vnd.google-apps.folder",
-                "parents": [drive_root],
+                "parents": [koncerty_folder_id],
             }
             folder = drv.files().create(body=folder_metadata, fields="id").execute()
             ev.drive_folder_id = folder["id"]
             db.commit()
             db.refresh(ev)
 
-        # Ujistit se, že Media složka existuje
-        folders = ensure_media_subfolders(drv, ev.drive_folder_id)
+        # Ujistit se, že sub-složky existují
+        ensure_event_subfolders(drv, ev.drive_folder_id)
 
         # Resetovat file pointer pro jistotu
         file.file.seek(0)
 
-        # 2. Nahrání na Disk
+        # 2. Nahrání na Disk (přímo do složky eventu dle nového požadavku)
         created = upload_file_to_drive(
             drv,
-            folders["media"],
+            ev.drive_folder_id,
             file.file,
             file.filename or "Playlist.pdf",
             "application/pdf",
@@ -429,13 +404,14 @@ def upload_media(
             raise HTTPException(status_code=500, detail="Missing drive root.")
 
         folder_name = f"{ev.date.isoformat()} {ev.title}"
+        koncerty_folder_id = ensure_folder(drv, drive_root, "Koncerty")
         folder = (
             drv.files()
             .create(
                 body={
                     "name": folder_name,
                     "mimeType": "application/vnd.google-apps.folder",
-                    "parents": [drive_root],
+                    "parents": [koncerty_folder_id],
                 },
                 fields="id",
             )
@@ -443,58 +419,36 @@ def upload_media(
         )
         ev.drive_folder_id = folder["id"]
 
-        media = (
-            drv.files()
-            .create(
-                body={
-                    "name": "Media",
-                    "mimeType": "application/vnd.google-apps.folder",
-                    "parents": [folder["id"]],
-                },
-                fields="id",
-            )
-            .execute()
-        )
-        media_id = media["id"]
-
-        drv.files().create(
-            body={
-                "name": "Fotky",
-                "mimeType": "application/vnd.google-apps.folder",
-                "parents": [media_id],
-            },
-            fields="id",
-        ).execute()
-        drv.files().create(
-            body={
-                "name": "Videa",
-                "mimeType": "application/vnd.google-apps.folder",
-                "parents": [media_id],
-            },
-            fields="id",
-        ).execute()
+        # Create subfolders Fotky, Videa, Audio directly in the event folder
+        ensure_event_subfolders(drv, ev.drive_folder_id)
         db.commit()
         db.refresh(ev)
 
-    folders = ensure_media_subfolders(drv, ev.drive_folder_id)
+    folders = ensure_event_subfolders(drv, ev.drive_folder_id)
 
     mime = file.content_type or "application/octet-stream"
     filename = file.filename or "upload.bin"
 
-    # auto routing (MVP): video/* -> videos, image/* -> photos
+    # auto routing: video/* -> videos, image/* -> photos, audio/* -> audio
     target = category
     if not target:
         if mime.startswith("image/"):
             target = "photos"
         elif mime.startswith("video/"):
             target = "videos"
+        elif mime.startswith("audio/"):
+            target = "audio"
         else:
             target = "other"
 
     folder_id = (
         folders["photos"]
         if target == "photos"
-        else folders["videos"] if target == "videos" else folders["media"]
+        else (
+            folders["videos"]
+            if target == "videos"
+            else folders["audio"] if target == "audio" else ev.drive_folder_id
+        )
     )
 
     created = upload_file_to_drive(drv, folder_id, file.file, filename, mime)
@@ -655,6 +609,11 @@ def sync_calendar(request: Request, db: Session = Depends(get_db)):
 
         # very basic 1-way sync (Google -> DB) based on calendar_event_id
         for item in items:
+            summary = item.get("summary", "")
+            if "zkouška" in summary.lower():
+                print(f"DEBUG SYNC: Skipping rehearsal: {summary}")
+                continue
+
             event_id = item["id"]
             db_ev = db.query(Event).filter(Event.calendar_event_id == event_id).first()
 

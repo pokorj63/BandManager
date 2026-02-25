@@ -6,6 +6,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const userAvatarEl = document.getElementById("user-avatar");
   const navLinks = document.querySelectorAll(".nav-links li");
   const sections = document.querySelectorAll(".content-section");
+  const sidebar = document.getElementById("sidebar");
+  const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
+
+  // --- Sidebar Collapse Logic ---
+  const isCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
+  if (isCollapsed) {
+    sidebar.classList.add("collapsed");
+  }
+
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("collapsed");
+    localStorage.setItem("sidebarCollapsed", sidebar.classList.contains("collapsed"));
+  });
 
   // --- 1. Kontrola přihlášení ---
   try {
@@ -38,6 +51,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   function showLogin() {
     dashboardView.classList.add("hidden");
     loginView.classList.remove("hidden");
+    showWelcomeModal();
+  }
+
+  // --- Uvítací modal ---
+  function showWelcomeModal() {
+    const overlay = document.getElementById("welcome-modal-overlay");
+    const modal = document.getElementById("welcome-modal");
+    if (!overlay) return;
+    // Zobraz overlay, pak spusť animaci
+    overlay.style.display = "flex";
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        overlay.style.opacity = "1";
+        modal.style.transform = "scale(1)";
+      });
+    });
+  }
+
+  const welcomeCloseBtn = document.getElementById("welcome-modal-close");
+  if (welcomeCloseBtn) {
+    welcomeCloseBtn.addEventListener("click", () => {
+      const overlay = document.getElementById("welcome-modal-overlay");
+      const modal = document.getElementById("welcome-modal");
+      overlay.style.opacity = "0";
+      modal.style.transform = "scale(0.92)";
+      setTimeout(() => { overlay.style.display = "none"; }, 400);
+    });
   }
 
   // --- 2. Navigace v postranním panelu ---
@@ -54,6 +94,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Přepnutí viditelnosti sekcí
       sections.forEach((sec) => sec.classList.add("hidden"));
       document.getElementById(targetId).classList.remove("hidden");
+
+      if (targetId === "musicarchivator") {
+        loadMADocLinks();
+      }
     });
   });
 
@@ -288,6 +332,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     detailInternal.textContent =
       ev.internal_notes || "Zatím žádné interní poznámky...";
 
+    const calendarBtn = document.getElementById("btn-open-calendar");
+    if (calendarBtn && ev.calendar_event_id) {
+      // Odkaz do Google Kalendáře pro konkrétní událost
+      const calId = "e07e81e11cfca0e7af8b92264670fa5526de10a89b502c0f4c58a8634fa0682b@group.calendar.google.com";
+      calendarBtn.href = `https://www.google.com/calendar/event?eid=${btoa(ev.calendar_event_id + " " + calId).replace(/=/g, "")}`;
+    } else if (calendarBtn) {
+      calendarBtn.href = "#";
+    }
+
     zaskokyList.innerHTML = "<li>Načítám záskoky...</li>";
     renderZaskoky(ev.subs || []);
     renderPlaylistInfo(ev.media_items || []);
@@ -352,9 +405,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                         ${sub.is_secured ? "ok (" + (sub.note || "") + ")" : "shání se"}
                     </span>
                 </div>
-                <div>
-                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.8rem;" onclick="toggleZaskok(${sub.id}, ${!sub.is_secured})">🔄</button>
-                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.8rem;" onclick="deleteZaskok(${sub.id})">✖</button>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-ghost" style="padding: 3px 10px; font-size: 0.8rem;" onclick="toggleZaskok(${sub.id}, ${!sub.is_secured})" title="Přepnout stav"><i class="fa-solid fa-rotate"></i></button>
+                    <button class="btn btn-danger" style="padding: 3px 10px; font-size: 0.8rem;" onclick="deleteZaskok(${sub.id})" title="Smazat"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             `;
       zaskokyList.appendChild(li);
@@ -438,6 +491,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       let cat = "other";
       if (file.type.startsWith("image/")) cat = "photos";
       if (file.type.startsWith("video/")) cat = "videos";
+      if (file.type.startsWith("audio/")) cat = "audio";
       formData.append("category", cat);
 
       try {
@@ -452,10 +506,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         window.mirekAlert(`Nelze nahrát ${file.name}`);
       }
     }
-    uploadMediaBtn.textContent = "Upload Fotek/Videí";
+    uploadMediaBtn.textContent = "Nahrát Fotky/Videa/Audio";
     window.mirekAlert("Soubory úspěšně nahrány!");
     e.target.value = "";
   };
+
 
   uploadPdfInput.onchange = async (e) => {
     if (!currentEventId) return;
@@ -653,6 +708,73 @@ document.addEventListener("DOMContentLoaded", async () => {
     "ma-btn-save-instruments",
   );
 
+  let instrumentsCache = [];
+  let currentSongIdForUpload = null;
+  let filesToUpload = []; // { file, type, instrumentName }
+
+  async function refreshInstrumentsCache() {
+    try {
+      const res = await fetch("/ma/instruments");
+      if (res.ok) {
+        instrumentsCache = await res.json();
+      }
+    } catch (e) {
+      console.error("Chyba při načítání nástrojů:", e);
+    }
+  }
+
+  // Načíst hned při startu MA v budoucnu nebo hned teď
+  refreshInstrumentsCache();
+
+  async function loadMADocLinks() {
+    // jen pro budoucí použití – tlačítka mají vlastní handlery níže
+  }
+
+  // Handler pro tlačítka – generuje dokument a hned otevírá
+  async function handleDocButton(btnId, docKey) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const origText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generuji...';
+    btn.style.pointerEvents = "none";
+
+    // Otevřeme prázdný tab HNED (synchronně) – jinak ho prohlížeč zablokuje
+    const newTab = window.open("", "_blank");
+
+    try {
+      const res = await fetch("/ma/documents/generate", { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Chyba serveru");
+      }
+      const links = await res.json();
+      const url = links[docKey];
+      if (url && newTab) {
+        newTab.location.href = url;
+      } else {
+        if (newTab) newTab.close();
+        window.mirekAlert("Dokument se nepodařilo vytvořit. Zkontroluj, zda máš nastavené BAND_DRIVE_ROOT_FOLDER_ID.");
+      }
+    } catch (e) {
+      console.error(e);
+      if (newTab) newTab.close();
+      window.mirekAlert("Chyba při generování dokumentu: " + e.message);
+    } finally {
+      btn.innerHTML = origText;
+      btn.style.pointerEvents = "";
+    }
+  }
+
+  document.getElementById("ma-link-current-list")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    handleDocButton("ma-link-current-list", "current_list");
+  });
+  document.getElementById("ma-link-missing-parts")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    handleDocButton("ma-link-missing-parts", "missing_parts");
+  });
+
+
   // Databáze skladeb se nyní načítá dynamicky ze serveru přes loadSongs()
 
   async function loadSongs() {
@@ -682,19 +804,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Seřadit: primárně podle kategorie (Standard první), pak podle čísla, pak N
+    const isStandardCat = (cat) => cat === "Standard" || cat === "Standardní repertoár";
+    const catDisplayName = (cat) => isStandardCat(cat) ? "Standardní repertoár" : cat;
+
     songs.sort((a, b) => {
-      // Priorita kategorii: Standard je nejvýš
-      if (a.category === "Standard" && b.category !== "Standard") return -1;
-      if (a.category !== "Standard" && b.category === "Standard") return 1;
-      
+      // Standardní repertoár vždy první
+      const aStd = isStandardCat(a.category);
+      const bStd = isStandardCat(b.category);
+      if (aStd && !bStd) return -1;
+      if (!aStd && bStd) return 1;
+
       // Pokud jsou kategorie stejné, řadíme podle čísla
-      if (a.category === b.category) {
+      if (a.category === b.category || (aStd && bStd)) {
         if (a.number === "N" && b.number !== "N") return 1;
         if (a.number !== "N" && b.number === "N") return -1;
         if (a.number !== "N" && b.number !== "N")
           return (parseInt(a.number) || 0) - (parseInt(b.number) || 0);
       }
-      
+
       // Jinak podle názvu kategorie a pak názvu písně
       const catComp = a.category.localeCompare(b.category);
       if (catComp !== 0) return catComp;
@@ -709,10 +836,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         const headTr = document.createElement("tr");
         headTr.innerHTML = `
                     <td colspan="6" style="background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.8rem; font-weight: 800; color: var(--accent); padding: 12px 10px;">
-                        ${song.category}
+                        ${catDisplayName(song.category)}
                     </td>
                 `;
         maSongsTbody.appendChild(headTr);
+      }
+
+      // Výpočet chybějících partů
+      const tracked = instrumentsCache.filter((i) => i.is_tracked);
+      const missing = [];
+      tracked.forEach((inst) => {
+        const hasFile = song.files && song.files.some(f => f.file_type === 'part' && f.instrument_name === inst.name);
+        if (!hasFile) missing.push(inst.name);
+      });
+
+      let missingHtml = "";
+      if (missing.length === 0) {
+        missingHtml = `<span style="color: #10b981; font-size: 0.8rem;"><i class="fa-solid fa-check-double"></i> Vše kompletní</span>`;
+      } else if (missing.length === tracked.length && tracked.length > 0) {
+        missingHtml = `<span style="color: var(--text-muted); font-size: 0.8rem;">Chybí celé</span>`;
+      } else if (missing.length > 5) {
+        const displayed = missing.slice(0, 5).join(", ");
+        missingHtml = `<span style="color: var(--text-muted); font-size: 0.8rem;">Chybí: ${displayed} a další...</span>`;
+      } else {
+        missingHtml = `<span style="color: var(--text-muted); font-size: 0.8rem;">Chybí: ${missing.join(", ")}</span>`;
       }
 
       const tr = document.createElement("tr");
@@ -723,14 +870,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="color: var(--text-muted); font-size: 0.8rem;">Délka: ${formatTime(song.duration)}</div>
                 </td>
                 <td style="font-weight: 600;">${song.singer}</td>
-                <td><span style="color: var(--text-muted); font-size: 0.8rem;">Vše kompletní</span></td>
+                <td>${missingHtml}</td>
                 <td>
-                    <a href="https://drive.google.com/drive/folders/${song.drive_folder_id}" target="_blank" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem; text-decoration: none;">
-                        <i class="fa-brands fa-google-drive" style="color: #10b981;"></i> Složka
+                    <a href="https://drive.google.com/drive/folders/${song.drive_folder_id}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none;">
+                        <i class="fa-brands fa-google-drive"></i> Složka
                     </a>
                 </td>
                 <td>
-                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="window.openEditSongForm(${JSON.stringify(song).replace(/"/g, "&quot;")})">✏️ Úprava</button>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-ghost" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.openEditSongForm(${JSON.stringify(song).replace(/"/g, "&quot;")})" title="Upravit data"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.triggerFolderUpload(${song.id})" title="Nahrát noty/audio"><i class="fa-solid fa-cloud-arrow-up"></i> Nahrát</button>
+                    </div>
                 </td>
             `;
       maSongsTbody.appendChild(tr);
@@ -738,7 +888,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Vyvolat render při startu
-  renderMA();
+  (async () => {
+    await refreshInstrumentsCache();
+    renderMA();
+  })();
 
   window.openEditSongForm = function (song) {
     editingSongId = song.id;
@@ -794,14 +947,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!container) return;
 
     const div = document.createElement("div");
-    div.className = "inst-item-row";
-    div.style.display = "flex";
-    div.style.alignItems = "center";
-    div.style.gap = "10px";
-    div.style.marginBottom = "8px";
-    div.style.background = "rgba(255,255,255,0.05)";
-    div.style.padding = "5px 10px";
-    div.style.borderRadius = "6px";
+    div.className = "inst-item-row glass-row";
 
     const nameValue = data ? data.name : "";
     const trackedChecked = data
@@ -811,11 +957,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       : "checked";
 
     div.innerHTML = `
-            <input type="text" placeholder="Název" value="${nameValue}" class="inst-name-input" style="flex: 1; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.9rem;">
-            <label style="font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+            <input type="text" placeholder="Název" value="${nameValue}" class="inst-name-input">
+            <label class="inst-tracked-label">
                 <input type="checkbox" ${trackedChecked} class="inst-tracked-check"> Sledovat
             </label>
-            <button class="btn-remove-item" onclick="this.closest('.inst-item-row').remove()" title="Odebrat">✖</button>
+            <button class="btn-remove-inst" onclick="this.closest('.inst-item-row').remove()" title="Odebrat">
+                <i class="fas fa-trash-alt"></i>
+            </button>
         `;
     container.appendChild(div);
   };
@@ -881,6 +1029,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (res.ok) {
         window.mirekAlert("Nástrojový setup byl úspěšně uložen!");
         maInstrumentSetup.classList.add("hidden");
+        await refreshInstrumentsCache();
+        renderMA();
+        loadMADocLinks();
       } else {
         window.mirekAlert("Chyba při ukládání setupu.");
       }
@@ -954,6 +1105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         maFormSong.reset();
         editingSongId = null;
         renderMA();
+        loadMADocLinks();
         renderRepertoire();
       } else {
         const err = await res.json();
@@ -976,6 +1128,230 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.deleteSong(editingSongId, title);
     }
   });
+
+  // --- Logic pro nahrávání materiálů ---
+  const maUploadPanel = document.getElementById("ma-upload-panel");
+  const maFolderInput = document.getElementById("ma-folder-input");
+  const maFilesList = document.getElementById("ma-upload-files-list");
+  const maBtnConfirmUpload = document.getElementById("ma-btn-confirm-upload");
+  const maBtnCancelUpload = document.getElementById("ma-btn-cancel-upload");
+  const maUploadModalClose = document.getElementById("ma-upload-modal-close");
+
+  window.triggerFolderUpload = function (songId) {
+    currentSongIdForUpload = songId;
+    maFolderInput.click();
+  };
+
+  maFolderInput?.addEventListener("change", (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const matchedInstruments = new Set();
+
+    filesToUpload = files.map((file) => {
+      const { type, instrumentName } = guessFileType(file.name, matchedInstruments);
+      if (type === "part" && instrumentName) {
+        matchedInstruments.add(instrumentName);
+      }
+      return { file, type, instrumentName };
+    });
+
+    renderFilesToUpload();
+    maUploadPanel.classList.remove("hidden");
+    maUploadPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Reset inputu aby šlo vybrat stejnou složku znovu
+    maFolderInput.value = "";
+  });
+
+  function guessFileType(filename, alreadyMatched = new Set()) {
+    const name = filename.toLowerCase();
+    const cleanName = normalizeName(name);
+    const ext = name.split(".").pop();
+
+    if (["mp3", "wav", "midi", "mid", "m4a"].includes(ext)) {
+      return { type: "audio", instrumentName: null };
+    }
+
+    if (
+      name.includes("partitura") ||
+      name.includes("score") ||
+      name.includes("vse") ||
+      name.includes("full") ||
+      name.includes("direkt") ||
+      name.includes("dirigent")
+    ) {
+      return { type: "score", instrumentName: null };
+    }
+
+    const instrumentFamilies = [
+      { name: "Trumpet", keywords: ["trubka", "trumpet", "trp", "tp"] },
+      { name: "Trombone", keywords: ["pozoun", "trombone", "tbn", "tb", "tuba", "poz", "trom", "pzn"] },
+      { name: "Alto Sax", keywords: ["alt", "alto", "asax", "as"] },
+      { name: "Tenor Sax", keywords: ["tenor", "tsax", "ts"] },
+      { name: "Baryton Sax", keywords: ["bari", "baritone", "bsax", "bs", "barisax"] },
+      { name: "Clarinet", keywords: ["klarinet", "clarinet", "cl", "kl"] },
+      { name: "Flute", keywords: ["fletna", "flute", "fl"] },
+      { name: "Bass", keywords: ["basa", "bass", "bg", "bgy", "baskytara"] },
+      { name: "Guitar", keywords: ["kytara", "guitar", "gtr", "git", "kyt"] },
+      { name: "Piano", keywords: ["klavir", "piano", "pno", "keys", "keyb", "pianino"] },
+      { name: "Drums", keywords: ["bici", "drums", "perc", "dr", "drums", "souprava"] },
+      { name: "Vocals", keywords: ["zpev", "vocals", "voc", "spiv", "vokal", "zpiv"] }
+    ];
+
+    // Funkce pro extrakci čísla z názvu (např. trp1 -> 1)
+    const fileNumberMatch = name.match(/\d+/);
+    const fileNumber = fileNumberMatch ? fileNumberMatch[0] : null;
+
+    // 1. Priorita: Úplná shoda s normalizovaným názvem nástroje + kontrola čísla
+    for (const inst of instrumentsCache) {
+      if (alreadyMatched.has(inst.name)) continue;
+
+      const normInst = normalizeName(inst.name);
+      const instNumberMatch = inst.name.match(/\d+/);
+      const instNumber = instNumberMatch ? instNumberMatch[0] : null;
+
+      // Pokud máme číslo v souboru, musí sedět s číslem nástroje (pokud nástroj číslo má)
+      if (fileNumber && instNumber && fileNumber !== instNumber) continue;
+
+      if (cleanName.includes(normInst)) {
+        return { type: "part", instrumentName: inst.name };
+      }
+    }
+
+    // 2. Fuzzy shoda přes rodiny nástrojů
+    for (const family of instrumentFamilies) {
+      const isFileInFamily = family.keywords.some(kw => name.includes(kw));
+      if (isFileInFamily) {
+        for (const inst of instrumentsCache) {
+          if (alreadyMatched.has(inst.name)) continue;
+
+          const normInstName = inst.name.toLowerCase();
+          const isInstInFamily = family.keywords.some(kw => normInstName.includes(kw));
+          
+          if (isInstInFamily) {
+            const instNumberMatch = inst.name.match(/\d+/);
+            const instNumber = instNumberMatch ? instNumberMatch[0] : null;
+            
+            // Opět kontrola čísla pro rodinu
+            if (fileNumber && instNumber && fileNumber !== instNumber) continue;
+
+            return { type: "part", instrumentName: inst.name };
+          }
+        }
+      }
+    }
+
+    return { type: "other", instrumentName: null };
+  }
+
+  function normalizeName(str) {
+    return str
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Odstranění diakritiky
+      .replace(/[^a-z0-9]/g, "");    // Ponechání jen alfanumerických znaků
+  }
+
+  function renderFilesToUpload() {
+    if (!maFilesList) return;
+    maFilesList.innerHTML = "";
+    filesToUpload.forEach((item, index) => {
+      const div = document.createElement("div");
+      div.className = "glass-row";
+      div.style = "justify-content: space-between;";
+
+      const partsOptions = instrumentsCache
+        .map(
+          (inst) =>
+            `<option value="part:${inst.name}" ${
+              item.type === "part" && item.instrumentName === inst.name
+                ? "selected"
+                : ""
+            }>Part: ${inst.name}</option>`,
+        )
+        .join("");
+
+      div.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+          <i class="fa-solid fa-file-pdf" style="color: var(--accent); font-size: 1.1rem; flex-shrink: 0;"></i>
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; font-weight: 600;" title="${item.file.name}">${item.file.name}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <select style="background: rgba(0,0,0,0.4); color: white; border: 1px solid var(--glass-border); border-radius: 6px; padding: 5px 8px; font-size: 0.85rem; cursor: pointer;" onchange="window.updateUploadAssignment(${index}, this.value)">
+            <option value="score" ${item.type === "score" ? "selected" : ""}>Partitura</option>
+            ${partsOptions}
+            <option value="audio" ${item.type === "audio" ? "selected" : ""}>Audio</option>
+            <option value="other" ${item.type === "other" ? "selected" : ""}>Jiné</option>
+          </select>
+          <button type="button" class="btn btn-secondary" onclick="window.removeFileUploadItem(${index})" title="Odebrat" style="padding: 5px 10px;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      maFilesList.appendChild(div);
+    });
+  }
+
+  window.updateUploadAssignment = function (index, value) {
+    if (value.startsWith("part:")) {
+      filesToUpload[index].type = "part";
+      filesToUpload[index].instrumentName = value.split("part:")[1];
+    } else {
+      filesToUpload[index].type = value;
+      filesToUpload[index].instrumentName = null;
+    }
+  };
+
+  window.removeFileUploadItem = function (index) {
+    filesToUpload.splice(index, 1);
+    renderFilesToUpload();
+  };
+
+  maBtnConfirmUpload.onclick = async () => {
+    if (filesToUpload.length === 0) return;
+    maBtnConfirmUpload.disabled = true;
+    const originalText = maBtnConfirmUpload.textContent;
+    
+    try {
+      let count = 0;
+      for (const item of filesToUpload) {
+        count++;
+        maBtnConfirmUpload.textContent = `Nahrávám (${count}/${filesToUpload.length})...`;
+        
+        const formData = new FormData();
+        formData.append("file", item.file);
+        formData.append("file_type", item.type);
+        if (item.instrumentName)
+          formData.append("instrument_name", item.instrumentName);
+
+        const res = await fetch(
+          `/ma/songs/${currentSongIdForUpload}/files`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Chyba při nahrávání souboru " + item.file.name);
+        }
+      }
+      window.mirekAlert("Všechny soubory byly nahrány a pojmenovány podle konvence.");
+      maUploadPanel.classList.add("hidden");
+      renderMA();
+      loadMADocLinks();
+    } catch (e) {
+      console.error(e);
+      window.mirekAlert("Chyba při nahrávání: " + e.message);
+    } finally {
+      maBtnConfirmUpload.disabled = false;
+      maBtnConfirmUpload.textContent = originalText;
+    }
+  };
+
+  maBtnCancelUpload.onclick = maUploadModalClose.onclick = () => {
+    maUploadPanel.classList.add("hidden");
+  };
 
   function parseDuration(str) {
     if (!str) return 0;
@@ -1019,13 +1395,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Seřadit stejně jako v MA
+    const isStandardCatPM = (cat) => cat === "Standard" || cat === "Standardní repertoár";
+    const catDisplayNamePM = (cat) => isStandardCatPM(cat) ? "Standardní repertoár" : cat;
+
     filtered.sort((a, b) => {
-      // Priorita kategorii: Standard je nejvýš
-      if (a.category === "Standard" && b.category !== "Standard") return -1;
-      if (a.category !== "Standard" && b.category === "Standard") return 1;
+      // Standardní repertoár vždy první
+      const aStd = isStandardCatPM(a.category);
+      const bStd = isStandardCatPM(b.category);
+      if (aStd && !bStd) return -1;
+      if (!aStd && bStd) return 1;
 
       // Pokud jsou kategorie stejné, řadíme podle čísla
-      if (a.category === b.category) {
+      if (a.category === b.category || (aStd && bStd)) {
         if (a.number === "N" && b.number !== "N") return 1;
         if (a.number !== "N" && b.number === "N") return -1;
         if (a.number !== "N" && b.number !== "N")
@@ -1046,7 +1427,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const headLi = document.createElement("li");
         headLi.style.cssText =
           "background: rgba(255, 255, 255, 0.05); text-transform: uppercase; font-size: 0.75rem; font-weight: 800; color: var(--accent); padding: 4px 10px; margin-bottom: 5px; border-radius: 4px; border: 1px solid var(--glass-border); text-align: center;";
-        headLi.textContent = song.category;
+        headLi.textContent = catDisplayNamePM(song.category);
         pmSourceList.appendChild(headLi);
       }
 

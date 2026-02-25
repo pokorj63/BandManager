@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
@@ -37,20 +37,26 @@
         <!-- Hlavní aplikační obrazovka -->
         <div id="dashboard-view" class="dashboard hidden">
             <!-- Boční panel (Sidebar) -->
-            <nav class="sidebar glass">
-                <div class="brand"
-                    style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 10px; gap: 10px;"
-                    onclick="document.querySelector('a[data-target=welcome]') ? document.querySelector('a[data-target=welcome]').click() : showWelcome()">
-                    <img src="/static/assets/BandManager_logo.png" alt="BandManager Logo"
-                        style="max-width: 100%; max-height: 80px; height: auto;">
-                    <h2 style="margin: 0; font-size: 1.5rem; font-weight: 800; text-align: center;">BandManager</h2>
+            <nav id="sidebar" class="sidebar glass">
+                <div class="sidebar-top" style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                    <div class="brand"
+                        style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 10px; gap: 10px;"
+                        onclick="document.querySelector('a[data-target=welcome]') ? document.querySelector('a[data-target=welcome]').click() : showWelcome()">
+                        <img src="/static/assets/BandManager_logo.png" alt="BandManager Logo"
+                            style="max-width: 100%; max-height: 80px; height: auto;">
+                        <h2 class="brand-name" style="margin: 0; font-size: 1.5rem; font-weight: 800; text-align: center;">BandManager</h2>
+                    </div>
+                    <button id="btn-toggle-sidebar" class="sidebar-toggle">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
                 </div>
 
+
                 <ul class="nav-links">
-                    <li class="hidden"><a href="#" data-target="welcome">Domů</a></li>
-                    <li><a href="#" data-target="musicarchivator">MusicArchivator</a></li>
-                    <li><a href="#" data-target="playlistmaker">PlaylistMaker</a></li>
-                    <li><a href="#" data-target="eventplaner">EventPlaner</a></li>
+                    <li class="hidden"><a href="#" data-target="welcome"><i class="fa-solid fa-house"></i> <span>Domů</span></a></li>
+                    <li><a href="#" data-target="musicarchivator"><i class="fa-solid fa-music"></i> <span>MusicArchivator</span></a></li>
+                    <li><a href="#" data-target="playlistmaker"><i class="fa-solid fa-list-check"></i> <span>PlaylistMaker</span></a></li>
+                    <li><a href="#" data-target="eventplaner"><i class="fa-solid fa-calendar-day"></i> <span>EventPlaner</span></a></li>
                 </ul>
 
                 <div class="user-profile">
@@ -102,13 +108,13 @@
                     <header class="section-header flex-header">
                         <div>
                             <h2>EventPlaner <button class="btn-help"
-                                    onclick="window.showMirek('Toto je tvůj EventPlaner. Zde uvidíš všechny nadcházející koncerty, můžeš přidávat nové nebo synchronizovat stávající s Google Kalendářem. Po rozkliknutí detailu najdeš možnost připojit playlist nebo řešit záskoky.')"
+                                    onclick="window.showMirek('EventPlaner \u2013 správa koncertů v kalendáři.\nCo umí:\n• Přidání události (název, datum, čas, místo, poznámky) – automaticky vzniká záznam v Google Kalendáři.\n• Úprava události – změny se promítnou i do Kalendáře.\n• Připojení PDF playlistu k události – nahraje soubor na Disk a přidá přílohu do Kalendáře. Možnost prokliknutí na tvorbu playlistu v PlaylistMakeru, předvyplní se návázání na onen koncert.\n• Synchronizace z Kalendáře – načte události, které někdo vytvořil přímo v kalendáři.\nCo neumí:\nZkoušky')"
                                     title="Nápověda">?</button></h2>
                             <p>Tvé nastávající koncerty. Napojeno na Google Kalendář a Disk.</p>
                         </div>
                         <div style="display: flex; gap: 10px;">
-                            <button id="btn-sync-events" class="btn btn-secondary">Synchronizovat s kalendářem</button>
-                            <button id="btn-show-add-event" class="btn btn-primary">+ Přidat událost</button>
+                            <button id="btn-sync-events" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i> Synchronizovat s kalendářem</button>
+                            <button id="btn-show-add-event" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Přidat událost</button>
                         </div>
                     </header>
 
@@ -119,7 +125,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Název (Koncert, Město)</label>
-                                    <input type="text" id="event-title" required placeholder="Např. Letní festival">
+                                    <input type="text" id="event-title" required>
                                 </div>
                                 <div class="form-group">
                                     <label>Datum</label>
@@ -138,19 +144,19 @@
                             </div>
                             <div class="form-group">
                                 <label>Místo (Adresa)</label>
-                                <input type="text" id="event-location" placeholder="Kde se hraje?">
+                                <input type="text" id="event-location">
                             </div>
                             <div class="form-group">
-                                <label>Popis pro fanoušky (do Google Kalendáře)</label>
+                                <label>Popis pro členy kapely (do Google Kalendáře)</label>
                                 <textarea id="event-public-desc" rows="2"></textarea>
                             </div>
                             <div class="form-group">
-                                <label>Interní poznámky kapely (Přejezdy, co vzít)</label>
+                                <label>Interní poznámky pro kapelníka (Přejezdy, co vzít)</label>
                                 <textarea id="event-internal-notes" rows="2"></textarea>
                             </div>
                             <div class="form-actions">
-                                <button type="button" id="btn-cancel-add-event" class="btn">Zrušit</button>
-                                <button type="submit" class="btn btn-primary">Uložit událost</button>
+                                <button type="button" id="btn-cancel-add-event" class="btn btn-ghost"><i class="fa-solid fa-xmark"></i> Zrušit</button>
+                                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Uložit událost</button>
                             </div>
                         </form>
                     </div>
@@ -182,8 +188,7 @@
                         <div id="event-detail-view" class="form-container glass hidden"
                             style="position: relative; padding-bottom: 70px;">
                             <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
-                                <button id="close-detail" class="btn"
-                                    style="background: rgba(255,255,255,0.9); color: black;">✖ Zavřít</button>
+                                <button id="close-detail" class="btn btn-ghost"><i class="fa-solid fa-xmark"></i> Zavřít</button>
                             </div>
                             <div class="detail-grid">
                                 <!-- Levej sloupec -->
@@ -192,9 +197,14 @@
                                         Název</h2>
                                     <p id="detail-date" style="font-size: 1.2rem; margin-bottom: 2px;">datum</p>
                                     <p id="detail-location" style="font-size: 1.2rem; margin-bottom: 15px;">místo</p>
-                                    <button id="btn-edit-event" class="btn btn-secondary"
-                                        style="margin-bottom: 30px; align-self: flex-start; padding: 6px 16px; font-size: 0.9rem;">✏
-                                        Upravit kapelní detaily</button>
+                                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 30px;">
+                                        <button id="btn-edit-event" class="btn btn-secondary" style="padding: 6px 16px; font-size: 0.9rem;">
+                                            <i class="fa-solid fa-pen"></i> Upravit detaily</button>
+                                        <a id="btn-open-calendar" href="#" target="_blank" class="btn btn-secondary"
+                                            style="padding: 6px 16px; font-size: 0.9rem; text-decoration: none;">
+                                            <i class="fa-solid fa-calendar-days"></i> Google Kalendář
+                                        </a>
+                                     </div>
 
                                     <div class="playlist-upload-area"
                                         style="border: 2px dashed rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 30px 20px; text-align: center; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; background: rgba(0,0,0,0.15);">
@@ -204,20 +214,20 @@
                                         <div
                                             style="display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;">
                                             <label class="btn btn-secondary" style="margin: 0; cursor: pointer;">
-                                                Nahrát z PC (PDF)
+                                                <i class="fa-solid fa-cloud-arrow-up"></i> Nahrát z PC (PDF)
                                                 <input type="file" id="upload-pdf-input" style="display: none;"
                                                     accept="application/pdf">
                                             </label>
-                                            <button class="btn btn-primary" id="btn-create-playlist-link"
-                                                style="margin: 0; background: #e11d48; border: none;">Vytvořit v
-                                                PlaylistMakeru</button>
+                                            <button class="btn btn-primary" id="btn-create-playlist-link" style="margin: 0;">
+                                                <i class="fa-solid fa-wand-magic-sparkles"></i> Vytvořit v PlaylistMakeru</button>
                                         </div>
                                     </div>
 
-                                    <button class="btn btn-large big-action-btn" id="btn-trigger-media-upload"
+                                    <button class="btn btn-large big-action-btn hidden" id="btn-trigger-media-upload"
                                         style="margin-top: auto;">
-                                        Upload Fotek/Videí
+                                        Nahrát Fotky/Videa/Audio
                                     </button>
+
                                     <input type="file" id="upload-media-input" style="display: none;" multiple
                                         accept="image/*,video/*">
                                 </div>
@@ -242,9 +252,8 @@
                                 </div>
                             </div>
                             <div style="position: absolute; bottom: 20px; right: 20px;">
-                                <button id="btn-delete-event" class="btn btn-secondary"
-                                    style="border-color: #ef4444; color: #ef4444; font-size: 0.9rem; padding: 6px 14px;">✖
-                                    Smazat událost</button>
+                                <button id="btn-delete-event" class="btn btn-danger" style="font-size: 0.9rem; padding: 6px 14px;">
+                                    <i class="fa-solid fa-trash"></i> Smazat událost</button>
                             </div>
                         </div>
                     </div>
@@ -255,24 +264,46 @@
                     <header class="section-header flex-header" style="margin-bottom: 20px;">
                         <div>
                             <h2>MusicArchivator <button class="btn-help"
-                                    onclick="window.showMirek('MusicArchivator je knihovna tvých not a midi souborů. Tady se bude dá procházet, vyhledávat a třídit celou zásobu rozepsaných skladeb.')"
+                                    onclick="window.showMirek('MusicArchivator \u2013 archiv tvých not.\nCo umí:\n• Eviduje každou skladbu s číslem, názvem a délkou. Pro přehlednost rozděleno na číslované, plesovky atd\n• Každé skladbě automaticky vzniká složka na Google Disku při jejím přidání.\n• Upload not: vybereš složku ze svého počítače, systém se pokusí každý soubor automaticky přiřadit ke konkrétnímu nástroji (partitura, part, audio) podle názvu souboru. Přiřazení lze před nahráním ručně opravit.\n• V tabulce vidíš, které party chybí \u2013 na základě nastavených nástrojů kapely.\n• Tlačítko Nastavení nástrojů definuje, pro které nástroje systém sleduje kompletnost.')"
                                     title="Nápověda">?</button></h2>
                             <div class="ma-top-links" style="display: flex; gap: 15px; margin-top: 10px;">
                                 <a href="#" id="ma-link-current-list" class="btn btn-secondary"
-                                    style="color: #ef4444; border-color: #ef4444; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                                    style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
                                     <i class="fa-brands fa-google-drive"></i> Aktuální seznam skladeb
                                 </a>
                                 <a href="#" id="ma-link-missing-parts" class="btn btn-secondary"
-                                    style="color: #ef4444; border-color: #ef4444; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                                    style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
                                     <i class="fa-brands fa-google-drive"></i> Seznam chybějících partů
                                 </a>
                             </div>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: flex-start;">
-                            <button class="btn btn-secondary" id="ma-btn-config-instruments">Nastavení nástrojů</button>
-                            <button class="btn btn-primary" id="ma-btn-add-song">+ Přidat skladbu</button>
+                            <button class="btn btn-secondary" id="ma-btn-config-instruments"><i class="fa-solid fa-sliders"></i> Nastavení nástrojů</button>
+                            <button class="btn btn-primary" id="ma-btn-add-song"><i class="fa-solid fa-plus"></i> Přidat skladbu</button>
                         </div>
                     </header>
+
+                    <!-- Inline Upload Panel -->
+                    <div id="ma-upload-panel" class="form-container glass hidden" style="margin-bottom: 24px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 16px;">
+                            <div>
+                                <h3 style="margin: 0 0 4px 0; font-size: 1.05rem;">Přiřazení not a materiálů</h3>
+                                <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Aplikace se pokusila automaticky přiřadit soubory k nástrojům. Zkontrolujte návrh a případně ho opravte.</p>
+                            </div>
+                            <button id="ma-upload-modal-close" class="btn btn-secondary" style="padding: 6px 14px; flex-shrink: 0;">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div id="ma-upload-files-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 4px;">
+                            <!-- Generováno JS -->
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--glass-border);">
+                            <button id="ma-btn-cancel-upload" class="btn btn-ghost"><i class="fa-solid fa-xmark"></i> Zrušit</button>
+                            <button id="ma-btn-confirm-upload" class="btn btn-primary">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Nahrát na Disk
+                            </button>
+                        </div>
+                    </div>
 
                     <!-- Instrument Setup Form -->
                     <div id="ma-instrument-setup" class="form-container glass hidden" style="margin-bottom: 30px;">
@@ -300,8 +331,8 @@
                         </div>
 
                         <div class="form-actions">
-                            <button type="button" id="ma-btn-cancel-instruments" class="btn">Zahodit změny</button>
-                            <button type="button" id="ma-btn-save-instruments" class="btn btn-primary">Uložit nastavení</button>
+                            <button type="button" id="ma-btn-cancel-instruments" class="btn btn-ghost"><i class="fa-solid fa-xmark"></i> Zahodit změny</button>
+                            <button type="button" id="ma-btn-save-instruments" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Uložit nastavení</button>
                         </div>
                     </div>
 
@@ -311,36 +342,36 @@
                             <div class="form-row">
                                 <div class="form-group" style="flex: 0 0 100px;">
                                     <label>Číslo (0.. / N)</label>
-                                    <input type="text" id="ma-song-number" required placeholder="N" maxlength="10">
+                                    <input type="text" id="ma-song-number" required maxlength="10">
                                 </div>
                                 <div class="form-group" style="flex: 1;">
                                     <label>Název skladby</label>
-                                    <input type="text" id="ma-song-title" required placeholder="Např. Billie Jean">
+                                    <input type="text" id="ma-song-title" required>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Zpěvák</label>
-                                    <input type="text" id="ma-song-singer" placeholder="Kdo zpívá?">
+                                    <input type="text" id="ma-song-singer">
                                 </div>
                                 <div class="form-group">
                                     <label>Kategorie</label>
-                                    <input type="text" id="ma-song-category" list="ma-category-list" placeholder="Standard">
+                                    <input type="text" id="ma-song-category" list="ma-category-list">
                                     <datalist id="ma-category-list">
-                                        <option value="Standard">
+                                        <option value="Standardní repertoár">
                                         <option value="Plesovky">
                                         <option value="Vánoční">
                                     </datalist>
                                 </div>
                                 <div class="form-group">
                                     <label>Délka (min:sek)</label>
-                                    <input type="text" id="ma-song-duration" placeholder="3:45">
+                                    <input type="text" id="ma-song-duration">
                                 </div>
                             </div>
                             <div class="form-actions">
-                                <button type="button" id="ma-btn-delete-song" class="btn hidden" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; margin-right: auto;">Smazat tuto skladbu</button>
-                                <button type="button" id="ma-btn-cancel-add-song" class="btn">Zrušit</button>
-                                <button type="submit" class="btn btn-primary" id="ma-btn-submit-song">Vytvořit skladbu a složku</button>
+                                <button type="button" id="ma-btn-delete-song" class="btn btn-danger hidden" style="margin-right: auto;"><i class="fa-solid fa-trash"></i> Smazat skladbu</button>
+                                <button type="button" id="ma-btn-cancel-add-song" class="btn btn-ghost"><i class="fa-solid fa-xmark"></i> Zrušit</button>
+                                <button type="submit" class="btn btn-primary" id="ma-btn-submit-song"><i class="fa-solid fa-floppy-disk"></i> Vytvořit skladbu a složku</button>
                             </div>
                         </form>
                     </div>
@@ -367,7 +398,7 @@
                 <section id="playlistmaker" class="content-section glass hidden">
                     <header class="section-header flex-header" style="margin-bottom: 0px;">
                         <h2>PlaylistMaker <button class="btn-help"
-                                onclick="window.showMirek('V PlaylistMakeru sestavuješ setlisty pro koncerty venku i pod střechou. Z tvého archivu jednoduše naklikáš požadované skladby s propočtem celkového času.')"
+                                onclick="window.showMirek('PlaylistMaker \u2013 tvorba setlistů a export.\n\nCo umí:\n• Prohlížet celý archiv skladeb, vyhledávát.\n• Přetáhni nebo dvojklikni pro výběr. To vpravo je jen interaktivní náhled, výsledné PDF může vypadat trochu jinak.\n• Možnost přidat více bloků, nakliknutý označen červeně\n• Zkrze poznámky jde přidat další text. Lze zvýraznit červeně.\n• Export do Kalendáře: přímo nahrá PDF jako přílohu ke Google události, nové nahrání automaticky nahrazuje staré.\n• Titulek se předvyplní z názvu vybrané události.')"
                                 title="Nápověda">?</button></h2>
                         <div
                             style="display: flex; gap: 10px; align-items: center; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 12px;">
@@ -413,9 +444,9 @@
                         <div class="pm-blocks panel">
                             <div class="pm-header flex-header" style="margin-bottom: 0; justify-content: flex-end;">
                                 <div style="display: flex; gap: 10px;">
-                                    <button class="btn btn-primary" id="pm-export-cal" disabled
-                                        title="Vyberte událost nahoře">Export do kalendáře</button>
-                                    <button class="btn btn-primary" id="pm-export-pdf">Export PDF</button>
+                                    <button class="btn btn-secondary" id="pm-export-cal" disabled
+                                        title="Vyberte událost nahoře"><i class="fa-solid fa-calendar-days"></i> Export do Kalendáře</button>
+                                    <button class="btn btn-primary" id="pm-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
                                 </div>
                             </div>
 
@@ -479,8 +510,108 @@
         </div>
     </div>
 
+    <!-- Uvítací modal na přihlašovací obrazovce -->
+    <div id="welcome-modal-overlay" style="
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(8px);
+        display: none; align-items: center; justify-content: center;
+        padding: 20px;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    ">
+        <div id="welcome-modal" style="
+            background: linear-gradient(135deg, rgba(30,30,60,0.97) 0%, rgba(15,15,35,0.97) 100%);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 560px;
+            width: 100%;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 60px rgba(100,80,255,0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            transform: scale(0.92);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        ">
+            <!-- Mirek avatar -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <div style="
+                    width: 90px; height: 90px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, rgba(100,80,255,0.3), rgba(255,80,180,0.2));
+                    border: 2px solid rgba(255,255,255,0.2);
+                    display: flex; align-items: center; justify-content: center;
+                    overflow: hidden;
+                    box-shadow: 0 0 25px rgba(100,80,255,0.4);
+                ">
+                    <img src="/static/assets/Mirek.png" alt="Mirek"
+                        style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+                <span style="font-weight: 700; font-size: 1rem; color: rgba(255,255,255,0.9); letter-spacing: 0.05em;">Mirek</span>
+            </div>
+
+            <!-- Bublina s textem -->
+            <div style="
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+                font-size: 0.95rem;
+                line-height: 1.7;
+                color: rgba(255,255,255,0.88);
+            ">
+                <!-- Uvítání -->
+                <p style="margin: 0;">
+                    Ahoj! Jsem <strong>Mirek</strong> – průvodce aplikací BandManager. V každé sekci mě můžeš zavolat tlačítkem s <strong>otazníčkem</strong>, pokusím se osvětlit, o co tady jde.
+                </p>
+
+                <!-- Upozornění -->
+                <div style="
+                    background: rgba(251, 146, 60, 0.12);
+                    border: 1px solid rgba(251, 146, 60, 0.45);
+                    border-radius: 12px;
+                    padding: 16px 18px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                ">
+                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #fb923c; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        Testovací mód
+                    </div>
+                    <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; color: rgba(255,255,255,0.82);">
+                        <li>Funguje <strong>pouze po přihlášení</strong> na účet <strong style="color: #fb923c;">offbeatorchestra@gmail.com</strong></li>
+                        <li>Aplikaci Google ještě neschválil – při přihlášení se zeptá jestli víš co děláš a bude potřeba <strong>potvrdit přístup</strong> na Disk a do Kalendáře</li>
+                        <li>Je vytvořena <strong>separátní složka a kalendář</strong> pro testování – nemusíš se bát, že něco smažeš nebo rozbiješ, nikdo nic neuvidí</li>
+                        <li>Veškeré chyby a nedostatky hlásit – <strong>děkuji!</strong> 🙏</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Tlačítko -->
+            <button id="welcome-modal-close" class="btn btn-primary" style="
+                padding: 12px 40px;
+                font-size: 1rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(100,80,255,0.4);
+                width: 100%;
+                max-width: 300px;
+            ">
+                <i class="fa-solid fa-circle-check"></i>&nbsp; Rozumím, přihlásit se
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Hidden inputy pro výběr souborů/složky -->
+    <input type="file" id="ma-folder-input" webkitdirectory mozdirectory directory multiple class="hidden">
+
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script src="/static/app.js?v=4"></script>
+    <script src="/static/app.js?v=5"></script>
 </body>
 
 </html>

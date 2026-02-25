@@ -67,11 +67,12 @@ def ensure_folder(drv, parent_id: str, name: str) -> str:
     return created["id"]
 
 
-def ensure_media_subfolders(drv, event_drive_folder_id: str) -> dict[str, str]:
-    media_id = ensure_folder(drv, event_drive_folder_id, "Media")
-    photos_id = ensure_folder(drv, media_id, "Photos")
-    videos_id = ensure_folder(drv, media_id, "Videos")
-    return {"media": media_id, "photos": photos_id, "videos": videos_id}
+def ensure_event_subfolders(drv, event_drive_folder_id: str) -> dict[str, str]:
+    # User wants Fotky, Videa, Audio directly in the event folder
+    photos_id = ensure_folder(drv, event_drive_folder_id, "Fotky")
+    videos_id = ensure_folder(drv, event_drive_folder_id, "Videa")
+    audio_id = ensure_folder(drv, event_drive_folder_id, "Audio")
+    return {"photos": photos_id, "videos": videos_id, "audio": audio_id}
 
 
 def upload_file_to_drive(
@@ -88,3 +89,34 @@ def upload_file_to_drive(
         .execute()
     )
     return created
+
+
+def find_file_id(drv, parent_id: str, name: str) -> Optional[str]:
+    q = f"name='{name}' " f"and '{parent_id}' in parents " f"and trashed=false"
+    res = drv.files().list(q=q, fields="files(id,name)", pageSize=10).execute()
+    files = res.get("files", [])
+    return files[0]["id"] if files else None
+
+
+def update_or_create_file(
+    drv, folder_id: str, file_stream, filename: str, mime_type: str
+) -> dict:
+    existing_id = find_file_id(drv, folder_id, filename)
+    media = MediaIoBaseUpload(file_stream, mimetype=mime_type, resumable=False)
+
+    if existing_id:
+        return (
+            drv.files()
+            .update(fileId=existing_id, media_body=media, fields="id,name,webViewLink")
+            .execute()
+        )
+    else:
+        return (
+            drv.files()
+            .create(
+                body={"name": filename, "parents": [folder_id]},
+                media_body=media,
+                fields="id,name,webViewLink",
+            )
+            .execute()
+        )

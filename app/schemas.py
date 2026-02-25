@@ -106,6 +106,18 @@ class InstrumentSetup(BaseModel):
     instruments: list[InstrumentCreate]
 
 
+class SongFileOut(BaseModel):
+    id: int
+    song_id: int
+    drive_file_id: str
+    name: str
+    file_type: str
+    instrument_name: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
 class SongOut(BaseModel):
     id: int
     number: str
@@ -114,6 +126,7 @@ class SongOut(BaseModel):
     duration: int
     category: str
     drive_folder_id: Optional[str]
+    files: list[SongFileOut] = []
 
     class Config:
         from_attributes = True
@@ -124,7 +137,7 @@ class SongCreate(BaseModel):
     title: str
     singer: str
     duration: int
-    category: str = "Standard"
+    category: str = "Standardní repertoár"
 
 
 class SongUpdate(BaseModel):
@@ -133,3 +146,9 @@ class SongUpdate(BaseModel):
     singer: Optional[str] = None
     duration: Optional[int] = None
     category: Optional[str] = None
+
+
+class SongFileUpload(BaseModel):
+    song_id: int
+    file_type: str  # 'part' | 'score' | 'audio' | 'other'
+    instrument_name: Optional[str] = None

@@ -1185,7 +1185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const instrumentFamilies = [
       { name: "Trumpet", keywords: ["trubka", "trumpet", "trp", "tp"] },
-      { name: "Trombone", keywords: ["pozoun", "trombone", "tbn", "tb", "tuba", "poz", "trom", "pzn"] },
+      { name: "Trombone", keywords: ["pozoun", "trombone", "tbn", "tuba", "poz", "trom", "pzn", "tb"] },
       { name: "Alto Sax", keywords: ["alt", "alto", "asax", "as"] },
       { name: "Tenor Sax", keywords: ["tenor", "tsax", "ts"] },
       { name: "Baryton Sax", keywords: ["bari", "baritone", "bsax", "bs", "barisax"] },
@@ -1195,8 +1195,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       { name: "Guitar", keywords: ["kytara", "guitar", "gtr", "git", "kyt"] },
       { name: "Piano", keywords: ["klavir", "piano", "pno", "keys", "keyb", "pianino"] },
       { name: "Drums", keywords: ["bici", "drums", "perc", "dr", "drums", "souprava"] },
-      { name: "Vocals", keywords: ["zpev", "vocals", "voc", "spiv", "vokal", "zpiv"] }
+      { name: "Main Vocals", keywords: ["mainvocal", "lead", "zpev", "vocals", "voc", "mainvoice"] },
+      { name: "Back Vocals", keywords: ["backvocal", "choir", "sbor", "vokaly", "vok", "coro", "bvox", "bgvox", "back"] }
     ];
+
+    // Funkce pro bezpečné hledání klíčového slova (aby "as" nenašlo "bass")
+    function safeIncludes(text, kw) {
+      if (kw.length > 2) return text.includes(kw);
+      // Pro krátké (as, ts, cl...) chceme aby to bylo buď na začátku/konci, nebo kolem byl jiný znak než písmeno
+      const regex = new RegExp("(^|[^a-z])" + kw + "($|[^a-z0-9])", "i");
+      return regex.test(text);
+    }
 
     // Funkce pro extrakci čísla z názvu (např. trp1 -> 1)
     const fileNumberMatch = name.match(/\d+/);
@@ -1220,8 +1229,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 2. Fuzzy shoda přes rodiny nástrojů
     for (const family of instrumentFamilies) {
-      const isFileInFamily = family.keywords.some(kw => name.includes(kw));
+      const isFileInFamily = family.keywords.some(kw => safeIncludes(name, kw));
       if (isFileInFamily) {
+        // Zkusíme nejdřív najít nástroj v cache, který patří do této rodiny
         for (const inst of instrumentsCache) {
           if (alreadyMatched.has(inst.name)) continue;
 

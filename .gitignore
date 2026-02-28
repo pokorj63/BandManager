@@ -8,8 +8,8 @@ __pycache__/
 .env
 .env.*
 
-# Databáze (lokální SQLite - na Railway bude nová prázdná DB)
-# bandmanager.db  <-- odkomentuj pokud chceš existující data nahrát
+# Databáze (žije na Railway Volume, NESMÍ jít do gitu!)
+bandmanager.db
 
 # OS / editor
 .DS_Store

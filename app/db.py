@@ -1,7 +1,10 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-DATABASE_URL = "sqlite:///./bandmanager.db"
+# Lokálně: ./bandmanager.db
+# Na Railway: /data/bandmanager.db (Volume)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bandmanager.db")
 
 engine = create_engine(
     DATABASE_URL,

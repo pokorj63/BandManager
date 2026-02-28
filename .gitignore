@@ -8,8 +8,8 @@ __pycache__/
 .env
 .env.*
 
-# Databáze (žije na Railway Volume, NESMÍ jít do gitu!)
-bandmanager.db
+# Databáze - JDE do gitu záměrně!
+# Workflow: před pushem stáhnout z Railway pomocí /admin/backup-db, uložit sem, pak pushnout
 
 # OS / editor
 .DS_Store

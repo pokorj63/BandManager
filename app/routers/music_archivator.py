@@ -349,31 +349,29 @@ async def upload_song_file(
                 # 3. Pojmenování zástupce: číslo název.pdf
                 shortcut_name = f"{song.number} {song.title}{ext}"
 
-                # 4. Smazat starého zástupce, pokud existuje, abychom neměli duplicity
+                # 4. Smazat starou kopii, pokud existuje, abychom neměli duplicity
                 safe_shortcut_name = _escape_q(shortcut_name)
                 q_old = (
                     f"name='{safe_shortcut_name}' "
                     f"and '{inst_folder_id}' in parents "
-                    f"and mimeType='application/vnd.google-apps.shortcut' "
                     f"and trashed=false"
                 )
-                old_shortcuts = (
+                old_files = (
                     drv.files()
                     .list(q=q_old, fields="files(id)")
                     .execute()
                     .get("files", [])
                 )
-                for old in old_shortcuts:
+                for old in old_files:
                     drv.files().delete(fileId=old["id"]).execute()
 
-                # 5. Vytvořit nového zástupce
-                shortcut_metadata = {
+                # 5. Vytvořit novou kopii souboru (ne zástupce)
+                # To je klíčové pro záskoky, aby viděli soubor i bez přístupu k hlavní složce
+                copy_metadata = {
                     "name": shortcut_name,
-                    "mimeType": "application/vnd.google-apps.shortcut",
                     "parents": [inst_folder_id],
-                    "shortcutDetails": {"targetId": drive_file["id"]},
                 }
-                drv.files().create(body=shortcut_metadata).execute()
+                drv.files().copy(fileId=drive_file["id"], body=copy_metadata).execute()
             except Exception as se:
                 print(f"MA Shortcut Error: {se}")
 

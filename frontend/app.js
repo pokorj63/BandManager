@@ -401,8 +401,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       li.innerHTML = `
                 <div>
                     <strong>${sub.role}</strong> - 
-                    <span style="color: ${sub.is_secured ? "var(--accent)" : "#ef4444"}">
-                        ${sub.is_secured ? "ok (" + (sub.note || "") + ")" : "shání se"}
+                    <span style="color: ${sub.is_secured ? "#22c55e" : "#ef4444"}">
+                        ${sub.is_secured ? "Zařízeno" : "shání se"}
                     </span>
                 </div>
                 <div style="display: flex; gap: 6px;">
@@ -1195,7 +1195,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       { name: "Guitar", keywords: ["kytara", "guitar", "gtr", "git", "kyt"] },
       { name: "Piano", keywords: ["klavir", "piano", "pno", "keys", "keyb", "pianino"] },
       { name: "Drums", keywords: ["bici", "drums", "perc", "dr", "drums", "souprava"] },
-      { name: "Main Vocals", keywords: ["mainvocal", "lead", "zpev", "vocals", "voc", "mainvoice"] },
+      { name: "Main Vocals", keywords: ["mainvocal", "lead", "solo", "zpev", "vocals", "voc", "mainvoice"] },
       { name: "Back Vocals", keywords: ["backvocal", "choir", "sbor", "vokaly", "vok", "coro", "bvox", "bgvox", "back"] }
     ];
 
@@ -1210,7 +1210,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // 0. Priorita: Staré/Archivní verze
-    if (name.includes("stare") || name.includes("old") || name.includes("archiv")) {
+    // Zkontrolovat i prefixy a oddělovače (používáme cleanName pro zachycení 'staré')
+    const isOld = cleanName.includes("stare") || cleanName.includes("old") || cleanName.includes("archiv") || name.startsWith("st-");
+    if (isOld) {
       return { type: "other", instrumentName: null };
     }
 

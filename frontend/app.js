@@ -1201,10 +1201,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Funkce pro bezpečné hledání klíčového slova (aby "as" nenašlo "bass")
     function safeIncludes(text, kw) {
+      if (!text || !kw) return false;
       if (kw.length > 2) return text.includes(kw);
-      // Pro krátké (as, ts, cl...) chceme aby to bylo buď na začátku/konci, nebo kolem byl jiný znak než písmeno
-      const regex = new RegExp("(^|[^a-z])" + kw + "($|[^a-z0-9])", "i");
+      // Pro krátké (as, ts, cl...) chceme aby to bylo buď na začátku/konci, 
+      // nebo kolem nebyla další písmena (čísla jsou ok, např. alt1)
+      const regex = new RegExp("(^|[^a-z])" + kw + "($|[^a-z])", "i");
       return regex.test(text);
+    }
+
+    // 0. Priorita: Staré/Archivní verze
+    if (name.includes("stare") || name.includes("old") || name.includes("archiv")) {
+      return { type: "other", instrumentName: null };
     }
 
     // Funkce pro extrakci čísla z názvu (např. trp1 -> 1)
@@ -1219,7 +1226,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       const instNumberMatch = inst.name.match(/\d+/);
       const instNumber = instNumberMatch ? instNumberMatch[0] : null;
 
-      // Pokud máme číslo v souboru, musí sedět s číslem nástroje (pokud nástroj číslo má)
       if (fileNumber && instNumber && fileNumber !== instNumber) continue;
 
       if (cleanName.includes(normInst)) {
@@ -1231,18 +1237,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     for (const family of instrumentFamilies) {
       const isFileInFamily = family.keywords.some(kw => safeIncludes(name, kw));
       if (isFileInFamily) {
-        // Zkusíme nejdřív najít nástroj v cache, který patří do této rodiny
         for (const inst of instrumentsCache) {
           if (alreadyMatched.has(inst.name)) continue;
 
           const normInstName = inst.name.toLowerCase();
-          const isInstInFamily = family.keywords.some(kw => normInstName.includes(kw));
+          // KRITICKÁ OPRAVA: I tady musíme použít safeIncludes, aby "Alto" (as) nenašlo "Bass" (bass)
+          const isInstInFamily = family.keywords.some(kw => safeIncludes(normInstName, kw));
           
           if (isInstInFamily) {
             const instNumberMatch = inst.name.match(/\d+/);
             const instNumber = instNumberMatch ? instNumberMatch[0] : null;
             
-            // Opět kontrola čísla pro rodinu
             if (fileNumber && instNumber && fileNumber !== instNumber) continue;
 
             return { type: "part", instrumentName: inst.name };

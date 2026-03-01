@@ -29,8 +29,7 @@
                 <p>Tvůj ultimátní kapelní ekosystém</p>
             </div>
             <a href="/auth/google/login" class="btn btn-primary btn-large">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google">
-                Přihlásit se kapelním účtem
+                <i class="fa-brands fa-google" style="margin-right: 8px;"></i>Přihlásit se kapelním účtem
             </a>
         </div>
 
@@ -75,7 +74,7 @@
                 <section id="welcome" class="content-section glass">
                     <header class="section-header">
                         <h2>Vítej v BandManageru!</h2>
-                        <p>Zvol si z menu vlevo nástroj, se kterým chceš pracovat.</p>
+                        <p>Tvůj chytrý asistent pro správu kapely, not a událostí.</p>
                     </header>
                     <div class="card-grid">
                         <div class="feature-card"
@@ -83,22 +82,21 @@
                             <img src="/static/assets/MusicArchivator_logo.png" alt="MusicArchivator Logo"
                                 style="height: 160px; margin-bottom: 1rem; width: auto; max-width: 100%;">
                             <h3>MusicArchivator</h3>
-                            <p>Knihovník. Pořádek v notách a midi formátech, chytře roztříděný archiv skladeb.</p>
+                            <p>Knihovník. Pořádek v notách a partiturách s inteligentním tříděním dle nástrojů.</p>
                         </div>
                         <div class="feature-card"
                             onclick="document.querySelector('a[data-target=playlistmaker]').click()">
                             <img src="/static/assets/PlaylistMaker_logo.png" alt="PlaylistMaker Logo"
                                 style="height: 160px; margin-bottom: 1rem; width: auto; max-width: 100%;">
                             <h3>PlaylistMaker</h3>
-                            <p>Dramaturg. Skládej z písní dokonalé setlisty s funkcí pro výpočet času.</p>
+                            <p>Dramaturg. Tvoř setlisty jednoduše přetažením, počítej čas a exportuj dokonalá PDF pro všechny.</p>
                         </div>
                         <div class="feature-card"
                             onclick="document.querySelector('a[data-target=eventplaner]').click()">
                             <img src="/static/assets/EventPlanner_logo.png" alt="EventPlanner Logo"
                                 style="height: 160px; margin-bottom: 1rem; width: auto; max-width: 100%;">
                             <h3>EventPlaner</h3>
-                            <p>Manažer. Plánuj koncerty, sdílej fotky a tvoř fotogalerie s napojením na Google Drive a
-                                Kalendář.</p>
+                            <p>Manažer. Plánuj koncerty do kalendáře, shromažďuj média a automatizuj přípravu not pro záskoky.</p>
                         </div>
                     </div>
                 </section>
@@ -245,8 +243,10 @@
                                         <!-- Generováno z JS -->
                                     </ul>
                                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
-                                        <input type="text" id="add-zaskok-input" placeholder="Nástroj (Basa, Zpěv...)"
+                                        <select id="add-zaskok-input"
                                             style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px; color: #fff; flex: 1;">
+                                            <option value="">Vyber zástupný nástroj...</option>
+                                        </select>
                                         <button id="add-zaskok-btn" class="btn btn-secondary">+ přidat</button>
                                     </div>
                                 </div>
@@ -377,6 +377,9 @@
                     </div>
 
                     <div class="ma-list-container panel glass">
+                        <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+                            <input type="text" id="ma-search" placeholder="Hledat skladbu podle názvu, čísla nebo zpěváka..." class="pm-input" style="max-width: 400px;">
+                        </div>
                         <table class="ma-table">
                             <thead>
                                 <tr>
@@ -407,7 +410,7 @@
                                 na událost:</label>
                             <select id="pm-event-select"
                                 style="background: transparent; border: none; outline: none; color: white; cursor: pointer; font-weight: 600; padding: 4px; appearance: none; -webkit-appearance: none; padding-right: 15px;">
-                                <option value="" style="color: black;">-- Volný návrh (Nezařazeno) --</option>
+                                <option value="" style="color: black;">Nepřiřazeno</option>
                                 <!-- Generováno JS -->
                             </select>
                             <i class="fa-solid fa-chevron-down"
@@ -420,7 +423,10 @@
                             <div class="pm-header"
                                 style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <h3 style="margin: 0; font-size: 1.1rem;">Repertoár a Obsah</h3>
+                                    <h3 style="margin: 0; font-size: 1.1rem;">Repertoár</h3>
+                                    <button class="btn btn-ghost" id="pm-btn-stats" style="padding: 2px 8px; font-size: 0.85rem;" title="Zobrazí frekvenci hraných skladeb">
+                                        <i class="fa-solid fa-chart-column"></i>
+                                    </button>
                                 </div>
                                 <div class="pm-tools" style="display: flex; gap: 8px;">
                                     <input type="text" id="pm-search" placeholder="Hledat skladbu..." class="pm-input"
@@ -507,6 +513,39 @@
                     style="padding: 8px 30px; display: none;">Ne</button>
                 <button id="helper-close" class="btn btn-primary" style="padding: 8px 30px;">Zavřít</button>
             </div>
+        </div>
+    </div>
+    <!-- Statistiky Modal -->
+    <div id="stats-modal-overlay" style="
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(8px);
+        display: none; align-items: center; justify-content: center;
+        padding: 20px;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    ">
+        <div id="stats-modal" style="
+            background: linear-gradient(135deg, rgba(30,30,60,0.97) 0%, rgba(15,15,35,0.97) 100%);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transform: scale(0.92);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        ">
+            <h2 style="margin: 0; font-size: 1.5rem; text-align: center;">Statistiky Odehraných Písní</h2>
+            <div id="stats-content" style="
+                display:flex; flex-direction: column; gap: 8px; font-size: 0.95rem; color: rgba(255,255,255,0.85);
+            ">
+            </div>
+            <button id="stats-modal-close" class="btn btn-primary" style="margin-top: 15px; align-self: center; padding: 10px 30px; border-radius: 12px;">Zavřít</button>
         </div>
     </div>
 

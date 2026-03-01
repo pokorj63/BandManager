@@ -15,6 +15,7 @@ class EventCreate(BaseModel):
     location: Optional[str] = Field(default=None, max_length=200)
     public_description: Optional[str] = None
     internal_notes: Optional[str] = None
+    playlist_songs: Optional[list[int]] = None
 
 
 class EventUpdate(BaseModel):
@@ -27,6 +28,7 @@ class EventUpdate(BaseModel):
     location: Optional[str] = Field(default=None, max_length=200)
     public_description: Optional[str] = None
     internal_notes: Optional[str] = None
+    playlist_songs: Optional[list[int]] = None
 
 
 class EventSubOut(BaseModel):
@@ -78,6 +80,7 @@ class EventOut(BaseModel):
 
     calendar_event_id: Optional[str] = None
     drive_folder_id: Optional[str] = None
+    playlist_songs: Optional[list[int]] = None
 
     subs: list[EventSubOut] = []
     media_items: list[MediaItemOut] = []

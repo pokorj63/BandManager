@@ -67,23 +67,15 @@ def save_instrument_setup(
         db.add(new_inst)
     db.commit()
 
-    # Po uložení nástrojů zajistíme složky na Disku pro záskoky
+    # Aktualizujeme dokumenty (seznamy)
     try:
         sid = request.session.get("sid")
         token_data = TOKENS[sid]
         creds = get_credentials_from_session(token_data["token"])
         drv = drive_service(creds)
-
-        root_id = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
-        parts_root_id = ensure_folder(drv, root_id, "Noty – podle partů")
-
-        for inst in payload.instruments:
-            ensure_folder(drv, parts_root_id, inst.name)
-
-        # Aktualizujeme dokumenty (seznamy)
         sync_ma_documents(email, drv, db)
     except Exception as e:
-        print(f"MA Instrument Folders Error: {e}")
+        print(f"MA Sync Docs Error: {e}")
 
     return {"status": "ok"}
 
@@ -131,8 +123,8 @@ def create_song(payload: SongCreate, request: Request, db: Session = Depends(get
         drv = drive_service(creds)
 
         root_id = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
-        # Sjednoceno na dlouhou pomlčku: Noty – podle skladby
-        noty_folder_id = ensure_folder(drv, root_id, "Noty – podle skladby")
+        # Přejmenováno na kratší "Noty"
+        noty_folder_id = ensure_folder(drv, root_id, "Noty")
 
         song_folder_name = f"{num} {payload.title}"
         song_folder_id = ensure_folder(drv, noty_folder_id, song_folder_name)
@@ -335,45 +327,6 @@ async def upload_song_file(
             db.add(new_song_file)
 
         db.commit()
-
-        # Pokud je to part, vytvoříme zástupce (shortcut) pro záskoky
-        if file_type == "part" and instrument_name:
-            try:
-                # 1. Najít nebo vytvořit root pro záskoky
-                root_id = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
-                parts_root_id = ensure_folder(drv, root_id, "Noty – podle partů")
-
-                # 2. Najít nebo vytvořit složku konkrétního nástroje
-                inst_folder_id = ensure_folder(drv, parts_root_id, instrument_name)
-
-                # 3. Pojmenování zástupce: číslo název.pdf
-                shortcut_name = f"{song.number} {song.title}{ext}"
-
-                # 4. Smazat starou kopii, pokud existuje, abychom neměli duplicity
-                safe_shortcut_name = _escape_q(shortcut_name)
-                q_old = (
-                    f"name='{safe_shortcut_name}' "
-                    f"and '{inst_folder_id}' in parents "
-                    f"and trashed=false"
-                )
-                old_files = (
-                    drv.files()
-                    .list(q=q_old, fields="files(id)")
-                    .execute()
-                    .get("files", [])
-                )
-                for old in old_files:
-                    drv.files().delete(fileId=old["id"]).execute()
-
-                # 5. Vytvořit novou kopii souboru (ne zástupce)
-                # To je klíčové pro záskoky, aby viděli soubor i bez přístupu k hlavní složce
-                copy_metadata = {
-                    "name": shortcut_name,
-                    "parents": [inst_folder_id],
-                }
-                drv.files().copy(fileId=drive_file["id"], body=copy_metadata).execute()
-            except Exception as se:
-                print(f"MA Shortcut Error: {se}")
 
         # Aktualizujeme dokumenty
         sync_ma_documents(email, drv, db)

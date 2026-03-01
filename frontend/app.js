@@ -402,10 +402,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div>
                     <strong>${sub.role}</strong> - 
                     <span style="color: ${sub.is_secured ? "#22c55e" : "#ef4444"}">
-                        ${sub.is_secured ? "Zařízeno" : "shání se"}
+                        ${sub.is_secured ? "Zařízeno" : "Shání se"}
                     </span>
                 </div>
                 <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-primary" style="padding: 3px 10px; font-size: 0.8rem;" onclick="generateZaskokFolder(${sub.id}, this)" title="Vytvořit složku not s party"><i class="fa-solid fa-folder-plus"></i></button>
                     <button class="btn btn-ghost" style="padding: 3px 10px; font-size: 0.8rem;" onclick="toggleZaskok(${sub.id}, ${!sub.is_secured})" title="Přepnout stav"><i class="fa-solid fa-rotate"></i></button>
                     <button class="btn btn-danger" style="padding: 3px 10px; font-size: 0.8rem;" onclick="deleteZaskok(${sub.id})" title="Smazat"><i class="fa-solid fa-xmark"></i></button>
                 </div>
@@ -447,6 +448,30 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  window.generateZaskokFolder = async (subId, btn) => {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/events/${currentEventId}/subs/${subId}/generate_folder`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        window.mirekAlert(`Složka pro záskok vytvořena! Zkopírováno ${data.copied_count} not.`);
+      } else {
+        const err = await res.json();
+        window.mirekAlert("Chyba: " + (err.detail || "Nepovedlo se vytvořit složku."));
+      }
+    } catch (e) {
+      console.error(e);
+      window.mirekAlert("Kritická chyba spojení.");
+    } finally {
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
     }
   };
 
@@ -707,9 +732,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const maBtnSaveInstruments = document.getElementById(
     "ma-btn-save-instruments",
   );
+  const maSearch = document.getElementById("ma-search");
 
   let instrumentsCache = [];
+  let maSongsCache = [];
   let currentSongIdForUpload = null;
+  let currentSongTitleForUpload = "";
   let filesToUpload = []; // { file, type, instrumentName }
 
   async function refreshInstrumentsCache() {
@@ -717,6 +745,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch("/ma/instruments");
       if (res.ok) {
         instrumentsCache = await res.json();
+        
+        // Aktualizace selectu pro záskoky
+        const zaskokSelect = document.getElementById("add-zaskok-input");
+        if (zaskokSelect) {
+            zaskokSelect.innerHTML = '<option value="">Vyber zástupný nástroj...</option>';
+            instrumentsCache.forEach(inst => {
+                const opt = document.createElement("option");
+                opt.value = inst.name;
+                opt.textContent = inst.name;
+                zaskokSelect.appendChild(opt);
+            });
+        }
       }
     } catch (e) {
       console.error("Chyba při načítání nástrojů:", e);
@@ -789,17 +829,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     return [];
   }
 
-  async function renderMA() {
+  async function renderMA(query = "") {
     if (!maSongsTbody) return;
-    maSongsTbody.innerHTML =
-      "<tr><td colspan='6' style='text-align:center;'>Načítám skladby...</td></tr>";
+    if (query === "") {
+        maSongsTbody.innerHTML =
+          "<tr><td colspan='6' style='text-align:center;'>Načítám skladby...</td></tr>";
+    }
 
     const songs = await loadSongs();
+    maSongsCache = songs;
     maSongsTbody.innerHTML = "";
 
-    if (songs.length === 0) {
+    const filteredSongs = songs.filter(
+      (s) =>
+        s.title.toLowerCase().includes(query.toLowerCase()) ||
+        (s.singer && s.singer.toLowerCase().includes(query.toLowerCase())) ||
+        String(s.number).toLowerCase().includes(query.toLowerCase())
+    );
+
+    if (filteredSongs.length === 0) {
       maSongsTbody.innerHTML =
-        "<tr><td colspan='6' style='text-align:center; padding: 20px; color: var(--text-muted);'>Žádné skladby v archivu. Začni přidáním první!</td></tr>";
+        "<tr><td colspan='6' style='text-align:center; padding: 20px; color: var(--text-muted);'>Žádné skladby neodpovídají hledání. Začni přidáním první!</td></tr>";
       return;
     }
 
@@ -807,7 +857,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const isStandardCat = (cat) => cat === "Standard" || cat === "Standardní repertoár";
     const catDisplayName = (cat) => isStandardCat(cat) ? "Standardní repertoár" : cat;
 
-    songs.sort((a, b) => {
+    filteredSongs.sort((a, b) => {
       // Standardní repertoár vždy první
       const aStd = isStandardCat(a.category);
       const bStd = isStandardCat(b.category);
@@ -830,7 +880,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let currentCategory = "";
 
-    songs.forEach((song) => {
+    filteredSongs.forEach((song) => {
       if (song.category !== currentCategory) {
         currentCategory = song.category;
         const headTr = document.createElement("tr");
@@ -854,7 +904,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (missing.length === 0) {
         missingHtml = `<span style="color: #10b981; font-size: 0.8rem;"><i class="fa-solid fa-check-double"></i> Vše kompletní</span>`;
       } else if (missing.length === tracked.length && tracked.length > 0) {
-        missingHtml = `<span style="color: var(--text-muted); font-size: 0.8rem;">Chybí celé</span>`;
+        missingHtml = `<span style="color: #fb923c; font-size: 0.8rem; font-weight: 600;">Chybí celé</span>`;
       } else if (missing.length > 5) {
         const displayed = missing.slice(0, 5).join(", ");
         missingHtml = `<span style="color: var(--text-muted); font-size: 0.8rem;">Chybí: ${displayed} a další...</span>`;
@@ -892,6 +942,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     await refreshInstrumentsCache();
     renderMA();
   })();
+
+  if (maSearch) {
+    maSearch.addEventListener("input", (e) => renderMA(e.target.value));
+  }
 
   window.openEditSongForm = function (song) {
     editingSongId = song.id;
@@ -1139,6 +1193,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   window.triggerFolderUpload = function (songId) {
     currentSongIdForUpload = songId;
+    const song = maSongsCache.find(s => s.id === songId);
+    currentSongTitleForUpload = song ? song.title : "";
     maFolderInput.click();
   };
 
@@ -1149,7 +1205,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const matchedInstruments = new Set();
 
     filesToUpload = files.map((file) => {
-      const { type, instrumentName } = guessFileType(file.name, matchedInstruments);
+      // Předáme název písně pro inteligentnější ořezání šumu v názvu souboru
+      const { type, instrumentName } = guessFileType(file.name, matchedInstruments, currentSongTitleForUpload);
       if (type === "part" && instrumentName) {
         matchedInstruments.add(instrumentName);
       }
@@ -1163,98 +1220,126 @@ document.addEventListener("DOMContentLoaded", async () => {
     maFolderInput.value = "";
   });
 
-  function guessFileType(filename, alreadyMatched = new Set()) {
-    const name = filename.toLowerCase();
-    const cleanName = normalizeName(name);
-    const ext = name.split(".").pop();
+  function guessFileType(filename, alreadyMatched = new Set(), songTitle = "") {
+    let defaultLower = filename.toLowerCase();
+    
+    // 1. Příprava "analýzovaného" názvu: odstraníme název písně a úvodní track-number / smetí
+    let analyzedName = defaultLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (songTitle) {
+      const normTitle = songTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      // Odstraníme název písně, pokud se v souboru nachází
+      if (analyzedName.includes(normTitle)) {
+          analyzedName = analyzedName.replace(normTitle, "");
+      }
+    }
+    
+    // Odstraníme úvodní "smetí" jako " - 03 ", "04-", track numbers atp.
+    analyzedName = analyzedName.replace(/^[\s\d\-_.]+/, "");
+
+    const nameForRegex = analyzedName;
+    const cleanName = normalizeName(analyzedName);
+    const ext = filename.toLowerCase().split(".").pop();
+    
+    // Získáme všechna čísla ze souboru (z toho očištěného názvu) pro párování partů 1, 2, 3...
+    const fileNumbers = (analyzedName.match(/\d+/g) || []).map(n => parseInt(n).toString());
+
+    console.log(`Analyzing file: "${filename}" -> Cleaned: "${analyzedName}" | Numbers: [${fileNumbers.join(", ")}]`);
 
     if (["mp3", "wav", "midi", "mid", "m4a"].includes(ext)) {
       return { type: "audio", instrumentName: null };
     }
 
-    if (
-      name.includes("partitura") ||
-      name.includes("score") ||
-      name.includes("vse") ||
-      name.includes("full") ||
-      name.includes("direkt") ||
-      name.includes("dirigent")
-    ) {
+    function safeIncludes(text, kw) {
+      if (!text || !kw) return false;
+      // Vždy používáme hranice slov pro instrumenty, abychom předešli "Trumpet" vs "Trumpety" v názvu písně.
+      // Zároveň ale musíme povolit, aby hned za zkratkou bylo číslo (např. "trp1").
+      const regex = new RegExp("(^|[^a-z0-9])" + kw + "($|[^a-z])", "i");
+      return regex.test(text);
+    }
+
+    const scoreKeywords = ["partitura", "score", "vse", "full", "direkt", "dirigent", "conductor"];
+    if (scoreKeywords.some(kw => safeIncludes(nameForRegex, kw))) {
       return { type: "score", instrumentName: null };
     }
 
     const instrumentFamilies = [
-      { name: "Trumpet", keywords: ["trubka", "trumpet", "trp", "tp"] },
-      { name: "Trombone", keywords: ["pozoun", "trombone", "tbn", "tuba", "poz", "trom", "pzn", "tb"] },
-      { name: "Alto Sax", keywords: ["alt", "alto", "asax", "as"] },
-      { name: "Tenor Sax", keywords: ["tenor", "tsax", "ts"] },
-      { name: "Baryton Sax", keywords: ["bari", "baritone", "bsax", "bs", "barisax"] },
+      { name: "Trumpet", keywords: ["trubka", "trumpet", "trp", "tp", "tpt"] },
+      { name: "Trombone", keywords: ["pozoun", "trombone", "tbn", "trbn", "trb", "tuba", "poz", "trom", "pzn", "tb", "basstrombone", "basstrb", "trombon"] },
+      { name: "Alto Sax", keywords: ["alt", "alto", "asax", "as", "altosax"] },
+      { name: "Tenor Sax", keywords: ["tenor", "tsax", "ts", "ten", "tenorsax"] },
+      { name: "Baryton Sax", keywords: ["baryton", "bari", "baritone", "bsax", "bs", "barisax"] },
       { name: "Clarinet", keywords: ["klarinet", "clarinet", "cl", "kl"] },
-      { name: "Flute", keywords: ["fletna", "flute", "fl"] },
-      { name: "Bass", keywords: ["basa", "bass", "bg", "bgy", "baskytara"] },
+      { name: "Flute", keywords: ["fletna", "flute", "fl", "flau"] },
+      { name: "Bass", keywords: ["basa", "bass", "bg", "bgy", "baskytara", "bas_guit", "basguit", "string", "stringbass"] },
       { name: "Guitar", keywords: ["kytara", "guitar", "gtr", "git", "kyt"] },
-      { name: "Piano", keywords: ["klavir", "piano", "pno", "keys", "keyb", "pianino"] },
-      { name: "Drums", keywords: ["bici", "drums", "perc", "dr", "drums", "souprava"] },
-      { name: "Main Vocals", keywords: ["mainvocal", "lead", "solo", "zpev", "vocals", "voc", "mainvoice"] },
+      { name: "Piano", keywords: ["klavir", "piano", "pno", "keys", "keyb", "pianino", "key", "keyboard", "keabord", "kbd", "kybd"] },
+      { name: "Drums", keywords: ["bici", "drums", "perc", "dr", "souprava", "percussion", "drum", "drumset", "set"] },
+      { name: "Main Vocals", keywords: ["mainvocal", "lead", "solo", "zpev", "vocals", "voc", "mainvoice", "voice", "vocal", "text", "lyrics", "sing"] },
       { name: "Back Vocals", keywords: ["backvocal", "choir", "sbor", "vokaly", "vok", "coro", "bvox", "bgvox", "back"] }
     ];
 
-    // Funkce pro bezpečné hledání klíčového slova (aby "as" nenašlo "bass")
-    function safeIncludes(text, kw) {
-      if (!text || !kw) return false;
-      if (kw.length > 2) return text.includes(kw);
-      // Pro krátké (as, ts, cl...) chceme aby to bylo buď na začátku/konci, 
-      // nebo kolem nebyla další písmena (čísla jsou ok, např. alt1)
-      const regex = new RegExp("(^|[^a-z])" + kw + "($|[^a-z])", "i");
-      return regex.test(text);
-    }
-
     // 0. Priorita: Staré/Archivní verze
-    // Zkontrolovat i prefixy a oddělovače (používáme cleanName pro zachycení 'staré')
-    const isOld = cleanName.includes("stare") || cleanName.includes("old") || cleanName.includes("archiv") || name.startsWith("st-");
-    if (isOld) {
-      return { type: "other", instrumentName: null };
-    }
+    const isOld = cleanName.includes("stare") || cleanName.includes("old") || cleanName.includes("archiv");
+    if (isOld) return { type: "other", instrumentName: null };
 
-    // Funkce pro extrakci čísla z názvu (např. trp1 -> 1)
-    const fileNumberMatch = name.match(/\d+/);
-    const fileNumber = fileNumberMatch ? fileNumberMatch[0] : null;
+    // --- LOGIKA PŘIŘAZENÍ ---
 
-    // 1. Priorita: Úplná shoda s normalizovaným názvem nástroje + kontrola čísla
-    for (const inst of instrumentsCache) {
-      if (alreadyMatched.has(inst.name)) continue;
-
-      const normInst = normalizeName(inst.name);
-      const instNumberMatch = inst.name.match(/\d+/);
-      const instNumber = instNumberMatch ? instNumberMatch[0] : null;
-
-      if (fileNumber && instNumber && fileNumber !== instNumber) continue;
-
-      if (cleanName.includes(normInst)) {
-        return { type: "part", instrumentName: inst.name };
-      }
-    }
-
-    // 2. Fuzzy shoda přes rodiny nástrojů
+    // 1. NEJSILNĚJŠÍ: Fuzzy shoda přes rodiny
     for (const family of instrumentFamilies) {
-      const isFileInFamily = family.keywords.some(kw => safeIncludes(name, kw));
-      if (isFileInFamily) {
+      if (family.keywords.some(kw => safeIncludes(nameForRegex, kw))) {
+        if (family.name === "Main Vocals" && nameForRegex.includes("choir")) continue;
+        if (family.name === "Bass" && (nameForRegex.includes("trombone") || nameForRegex.includes("pozoun"))) continue;
+
+        let candidates = [];
         for (const inst of instrumentsCache) {
           if (alreadyMatched.has(inst.name)) continue;
 
-          const normInstName = inst.name.toLowerCase();
-          // KRITICKÁ OPRAVA: I tady musíme použít safeIncludes, aby "Alto" (as) nenašlo "Bass" (bass)
-          const isInstInFamily = family.keywords.some(kw => safeIncludes(normInstName, kw));
+          const normInstName = inst.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const isInstInFamily = family.keywords.some(kw => {
+             if (kw.length >= 4) return normInstName.includes(kw);
+             const regexInst = new RegExp("(^|[^a-z0-9])" + kw + "($|[^a-z0-9])", "i");
+             return regexInst.test(normInstName);
+          });
           
           if (isInstInFamily) {
-            const instNumberMatch = inst.name.match(/\d+/);
-            const instNumber = instNumberMatch ? instNumberMatch[0] : null;
-            
-            if (fileNumber && instNumber && fileNumber !== instNumber) continue;
+            const numMatch = inst.name.match(/\d+/);
+            const instNumber = numMatch ? parseInt(numMatch[0]).toString() : null;
 
-            return { type: "part", instrumentName: inst.name };
+            if (instNumber && !fileNumbers.includes(instNumber)) continue;
+            candidates.push({ inst, instNumber });
           }
         }
+
+        if (candidates.length > 0) {
+          console.log(`Found candidates for ${family.name}:`, candidates.map(c => c.inst.name));
+          const isBassTbn = family.name === "Trombone" && (nameForRegex.includes("bass") || nameForRegex.includes("basstrombone"));
+          if (isBassTbn) {
+            candidates.sort((a, b) => (parseInt(b.instNumber) || 0) - (parseInt(a.instNumber) || 0));
+          } else {
+            candidates.sort((a, b) => (parseInt(a.instNumber) || 0) - (parseInt(b.instNumber) || 0));
+          }
+          return { type: "part", instrumentName: candidates[0].inst.name };
+        }
+      }
+    }
+
+    // 2. BACKUP: Přímá shoda slov z názvu nástroje
+    for (const inst of instrumentsCache) {
+      if (alreadyMatched.has(inst.name)) continue;
+      
+      const normInstName = inst.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const instWords = normInstName.split(/[\s\-_.]+/).filter(w => w.length > 0);
+      
+      const numMatch = inst.name.match(/\d+/);
+      const instNumber = numMatch ? parseInt(numMatch[0]).toString() : null;
+
+      const allWordsMatch = instWords.every(word => {
+          if (word.match(/^\d+$/)) return fileNumbers.includes(word);
+          return safeIncludes(nameForRegex, word);
+      });
+
+      if (allWordsMatch && instWords.length > 0) {
+        return { type: "part", instrumentName: inst.name };
       }
     }
 
@@ -1290,7 +1375,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       div.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
-          <i class="fa-solid fa-file-pdf" style="color: var(--accent); font-size: 1.1rem; flex-shrink: 0;"></i>
+          <i class="fa-solid fa-file" style="color: var(--accent); font-size: 1.1rem; flex-shrink: 0;"></i>
           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; font-weight: 600;" title="${item.file.name}">${item.file.name}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
@@ -1449,7 +1534,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       const li = document.createElement("li");
-      li.className = "pm-item";
+      li.className = "pm-item song-item";
+      li.dataset.songId = song.id;
       li.dataset.duration = song.duration;
       li.dataset.num = song.number;
       li.dataset.title = song.title;
@@ -1484,6 +1570,62 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       pmSourceList.appendChild(li);
     });
+  }
+
+  // Statistiky písní v PM
+  const btnStats = document.getElementById("pm-btn-stats");
+  const statsModalOverlay = document.getElementById("stats-modal-overlay");
+  const statsModalClose = document.getElementById("stats-modal-close");
+  const statsContent = document.getElementById("stats-content");
+
+  if (btnStats) {
+      btnStats.addEventListener("click", async () => {
+          statsContent.innerHTML = "Načítám statistiky...";
+          statsModalOverlay.style.display = "flex";
+          setTimeout(() => statsModalOverlay.style.opacity = "1", 10);
+
+          try {
+              const res = await fetch("/events/stats/songs");
+              if (!res.ok) throw new Error("Chyba při načítání statistik");
+              const data = await res.json();
+              
+              if (data.length === 0) {
+                  statsContent.innerHTML = "Zatím nebyly odehrány žádné skladby na událostech.";
+                  return;
+              }
+
+              let html = `<table style="width:100%; text-align: left; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                    <th style="padding: 8px;">Píseň</th>
+                                    <th style="padding: 8px;">Zpěv</th>
+                                    <th style="padding: 8px;">Odehráno</th>
+                                    <th style="padding: 8px;">Naposledy</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+              data.forEach(s => {
+                  const lastPlayedDate = s.last_played ? new Date(s.last_played).toLocaleDateString("cs-CZ") : "Nikdy";
+                  html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 8px; font-weight: bold;">${s.title}</td>
+                            <td style="padding: 8px; font-size: 0.85em; opacity: 0.8;">${s.singer || ""}</td>
+                            <td style="padding: 8px; color: var(--accent); font-weight: 800; text-align: center;">${s.count}x</td>
+                            <td style="padding: 8px; font-size: 0.85em;">${lastPlayedDate}</td>
+                           </tr>`;
+              });
+              html += `</tbody></table>`;
+              statsContent.innerHTML = html;
+          } catch (err) {
+              statsContent.innerHTML = `<span style="color:red">${err.message}</span>`;
+          }
+      });
+  }
+
+  if (statsModalClose) {
+      statsModalClose.addEventListener("click", () => {
+          statsModalOverlay.style.opacity = "0";
+          setTimeout(() => statsModalOverlay.style.display = "none", 400);
+      });
   }
 
   // Aktivace bloku na klik
@@ -1737,8 +1879,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function buildPdfDefinition() {
     const listTitle =
-      document.getElementById("pm-playlist-title").value || "KAPELNÍ PLAYLIST";
+      document.getElementById("pm-playlist-title").value || "PLAYLIST";
     const headerTitle = listTitle.toUpperCase();
+
+    function limitText(str, limit) {
+      if (!str) return "";
+      if (str.length <= limit) return str;
+      return str.substring(0, limit) + "…";
+    }
 
     const blocks = document.querySelectorAll(".pm-block");
     const showBlockTitle = blocks.length > 1;
@@ -1820,8 +1968,9 @@ document.addEventListener("DOMContentLoaded", async () => {
               margin: [0, cellMargin, 0, cellMargin],
             },
             {
-              text: li.dataset.title.toUpperCase(),
+              text: limitText(li.dataset.title.toUpperCase(), 30),
               bold: true,
+              noWrap: true,
               margin: [0, cellMargin, 0, cellMargin],
             },
             {
@@ -1830,8 +1979,9 @@ document.addEventListener("DOMContentLoaded", async () => {
               margin: [0, cellMargin, 0, cellMargin],
             },
             {
-              text: li.dataset.singer.toUpperCase(),
+              text: limitText(li.dataset.singer.toUpperCase(), 12),
               bold: true,
+              noWrap: true,
               margin: [0, cellMargin, 0, cellMargin],
             },
           ]);
@@ -1841,11 +1991,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       blockStack.push({
         table: {
-          widths: [30, "*", 45, 100],
+          widths: [30, 250, 45, 120],
           body: tableBody,
         },
         layout: "noBorders",
-        margin: [20, 5, 0, 10],
+        margin: [20, 5, 20, 10],
       });
 
       // Make sure the block naturally drops down entirely to the next page if it does not fit
@@ -1953,6 +2103,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       pdfMake.createPdf(docDef).getBlob(async (blob) => {
         const formData = new FormData();
         formData.append("file", blob, `${title}.pdf`);
+        
+        // Extrakce ID skladeb v pořadí, jak jsou v playlistu
+        const songIds = [];
+        document.querySelectorAll("#pm-blocks-container .target-list li.song-item").forEach(li => {
+            const id = li.dataset.songId;
+            if (id) songIds.push(parseInt(id, 10));
+        });
+        formData.append("playlist_songs", JSON.stringify(songIds));
         try {
           const res = await fetch(`/events/${eventId}/playlist_attach`, {
             method: "POST",
@@ -2029,7 +2187,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const currentVal = select.value;
 
         select.innerHTML =
-          '<option value="" style="color: black;">-- Volný návrh (Nezařazeno) --</option>';
+          '<option value="" style="color: black;">Nepřiřazeno</option>';
         events.forEach((ev) => {
           const opt = document.createElement("option");
           opt.value = ev.id;

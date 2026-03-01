@@ -10,6 +10,7 @@ from sqlalchemy import (
     UniqueConstraint,
     DateTime,
     Boolean,
+    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
@@ -35,6 +36,7 @@ class Event(Base):
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     calendar_event_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     drive_folder_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    playlist_songs: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
 
     media_items = relationship(
         "MediaItem", back_populates="event", cascade="all, delete-orphan"

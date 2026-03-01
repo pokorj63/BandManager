@@ -179,7 +179,9 @@ a {
   border-right: 1px solid var(--glass-border);
   height: 100%;
   width: 260px;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+  transition:
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.3s ease;
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
@@ -287,7 +289,11 @@ a {
   justify-content: center;
 }
 
-.brand, .brand img, .brand-name, .nav-links li a, .user-info {
+.brand,
+.brand img,
+.brand-name,
+.nav-links li a,
+.user-info {
   transition: all 0.3s ease;
 }
 
@@ -844,7 +850,8 @@ a {
   min-height: 750px;
 }
 
-.pm-item-title, .pm-item-artist {
+.pm-item-title,
+.pm-item-artist {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -878,7 +885,11 @@ a {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  min-height: 300px;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 80px);
+  min-height: 400px;
   overflow: hidden;
 }
 

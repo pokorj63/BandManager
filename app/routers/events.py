@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import calendar as calmod
 import os
+import json
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.token_store import TOKENS
-from app.models import Event, MediaItem, EventSub
+from app.models import Event, MediaItem, EventSub, Song, SongFile
 from app.schemas import (
     EventCreate,
     EventOut,
@@ -239,18 +240,22 @@ def attach_playlist_to_calendar(
     event_id: int,
     request: Request,
     file: UploadFile = File(...),
+    playlist_songs: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     try:
-        with open("route_debug.log", "a") as f:
-            f.write(
-                f"DEBUG: Entered attach_playlist_to_calendar for event {event_id}\n"
-            )
         ev = db.query(Event).filter(Event.id == event_id).first()
         if not ev:
             raise HTTPException(
                 status_code=404, detail=f"Událost s ID {event_id} nebyla nalezena."
             )
+
+        if playlist_songs:
+            try:
+                ev.playlist_songs = json.loads(playlist_songs)
+                db.commit()
+            except Exception as e:
+                print(f"Playlist JSON parse error: {e}")
 
         # Získání credentials a služeb
         token = require_token(request)
@@ -380,7 +385,9 @@ def attach_playlist_to_calendar(
 
         traceback.print_exc()
         # Vracíme Mirek-error aby byl videt detail
-        raise HTTPException(status_code=500, detail=f"MIREK_DEBUG: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Chyba serveru při ukládání playlistu: {str(e)}"
+        )
 
 
 @router.post("/{event_id}/media", response_model=MediaItemOut)
@@ -567,6 +574,118 @@ def delete_sub(event_id: int, sub_id: int, db: Session = Depends(get_db)):
     return {"deleted": True}
 
 
+@router.post("/{event_id}/subs/{sub_id}/generate_folder")
+def generate_sub_folder(
+    event_id: int, sub_id: int, request: Request, db: Session = Depends(get_db)
+):
+    ev = db.query(Event).filter(Event.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Událost nenalezena.")
+
+    sub = (
+        db.query(EventSub)
+        .filter(EventSub.id == sub_id, EventSub.event_id == event_id)
+        .first()
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Záskok nenalezen.")
+
+    if not ev.playlist_songs:
+        raise HTTPException(
+            status_code=400,
+            detail="Nejprve vytvořte a uložte Playlist v PlaylistMakeru (kliknutím na 'Export PDF/Kalendář').",
+        )
+
+    token = require_token(request)
+    creds = get_credentials_from_session(token)
+    drv = drive_service(creds)
+    drive_root = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
+
+    # Najít/vytvořit root pro Záskoky
+    zaskoky_root_id = ensure_folder(drv, drive_root, "Noty pro záskoky")
+
+    # Vytvořit složku "Datum Název události - Role"
+    folder_name = f"{ev.date} {ev.title} - {sub.role}"
+    target_folder_id = ensure_folder(drv, zaskoky_root_id, folder_name)
+
+    # Vyčistit staré noty uvnitř
+    q_old = f"'{target_folder_id}' in parents and trashed=false"
+    old_files = drv.files().list(q=q_old, fields="files(id)").execute().get("files", [])
+    for old in old_files:
+        try:
+            drv.files().delete(fileId=old["id"]).execute()
+        except:
+            pass
+
+    # Postupně v pořadí z playlistu hledat a kopírovat příslušný part
+    copied = 0
+    for idx, song_id in enumerate(ev.playlist_songs, start=1):
+        song_info = db.query(Song).filter(Song.id == song_id).first()
+        part_file = (
+            db.query(SongFile)
+            .filter(
+                SongFile.song_id == song_id,
+                SongFile.instrument_name == sub.role,
+                SongFile.file_type == "part",
+            )
+            .first()
+        )
+
+        if part_file and song_info:
+            ext = os.path.splitext(part_file.name)[1]
+            new_name = f"{idx:02d} - {song_info.title}{ext}"
+            try:
+                copy_metadata = {
+                    "name": new_name,
+                    "parents": [target_folder_id],
+                }
+                drv.files().copy(
+                    fileId=part_file.drive_file_id, body=copy_metadata
+                ).execute()
+                copied += 1
+            except Exception as e:
+                print(f"Error copying sub part {new_name}: {e}")
+
+    return {"status": "ok", "copied_count": copied}
+
+
+@router.get("/stats/songs")
+def get_song_stats(db: Session = Depends(get_db)):
+    events = db.query(Event).filter(Event.playlist_songs.isnot(None)).all()
+    stats = {}
+    for ev in events:
+        if ev.playlist_songs and isinstance(ev.playlist_songs, list):
+            for song_id in ev.playlist_songs:
+                if song_id not in stats:
+                    stats[song_id] = {"count": 0, "last_played": None}
+                stats[song_id]["count"] += 1
+                if (
+                    not stats[song_id]["last_played"]
+                    or ev.date > stats[song_id]["last_played"]
+                ):
+                    stats[song_id]["last_played"] = ev.date
+
+    songs = db.query(Song).all()
+    result = []
+    for s in songs:
+        if s.id in stats:
+            result.append(
+                {
+                    "id": s.id,
+                    "title": s.title,
+                    "singer": s.singer,
+                    "count": stats[s.id]["count"],
+                    "last_played": (
+                        stats[s.id]["last_played"].isoformat()
+                        if stats[s.id]["last_played"]
+                        else None
+                    ),
+                }
+            )
+
+    return sorted(result, key=lambda x: x["count"], reverse=True)
+
+
 # --- Sync from Google Calendar ---
 @router.post("/sync")
 def sync_calendar(request: Request, db: Session = Depends(get_db)):
@@ -595,23 +714,11 @@ def sync_calendar(request: Request, db: Session = Depends(get_db)):
         )
 
         items = events_result.get("items", [])
-        print(
-            f"DEBUG SYNC: fetched {len(items)} events from Google Calendar ID: {calendar_id}"
-        )
-
-        try:
-            import json
-
-            with open("sync_debug.json", "w", encoding="utf-8") as f:
-                json.dump(events_result, f, ensure_ascii=False, indent=2)
-        except Exception as file_err:
-            print("Failed to save debug json:", file_err)
-
         # very basic 1-way sync (Google -> DB) based on calendar_event_id
         for item in items:
             summary = item.get("summary", "")
             if "zkouška" in summary.lower():
-                print(f"DEBUG SYNC: Skipping rehearsal: {summary}")
+                print(f"Sync: Skipping rehearsal: {summary}")
                 continue
 
             event_id = item["id"]
@@ -641,9 +748,7 @@ def sync_calendar(request: Request, db: Session = Depends(get_db)):
                     dt = datetime.datetime.strptime(start_d, "%Y-%m-%d")
 
             if not db_ev:
-                print(
-                    f"DEBUG SYNC: New event found: {item.get('summary')} (ID: {event_id})"
-                )
+                print(f"Sync: New event found: {item.get('summary')} (ID: {event_id})")
                 new_ev = Event(
                     title=item.get("summary", "Bez Názvu"),
                     date=dt.date(),

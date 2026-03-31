@@ -17,7 +17,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   btnToggleSidebar.addEventListener("click", () => {
     sidebar.classList.toggle("collapsed");
-    localStorage.setItem("sidebarCollapsed", sidebar.classList.contains("collapsed"));
+    localStorage.setItem(
+      "sidebarCollapsed",
+      sidebar.classList.contains("collapsed"),
+    );
   });
 
   // --- 1. Kontrola přihlášení ---
@@ -76,7 +79,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const modal = document.getElementById("welcome-modal");
       overlay.style.opacity = "0";
       modal.style.transform = "scale(0.92)";
-      setTimeout(() => { overlay.style.display = "none"; }, 400);
+      setTimeout(() => {
+        overlay.style.display = "none";
+      }, 400);
     });
   }
 
@@ -196,12 +201,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           document.getElementById("event-date").value = dateStr;
           formEventContainer.classList.remove("hidden");
           btnShowAddEvent.style.display = "none";
-          document
-            .querySelector(".main-content")
-            .scrollTo({
-              top: formEventContainer.offsetTop - 50,
-              behavior: "smooth",
-            });
+          document.querySelector(".main-content").scrollTo({
+            top: formEventContainer.offsetTop - 50,
+            behavior: "smooth",
+          });
         };
 
         calendarGrid.appendChild(el);
@@ -286,18 +289,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         formEventContainer.classList.remove("hidden");
         btnShowAddEvent.style.display = "none";
-        document
-          .querySelector(".main-content")
-          .scrollTo({
-            top: formEventContainer.offsetTop - 50,
-            behavior: "smooth",
-          });
+        document.querySelector(".main-content").scrollTo({
+          top: formEventContainer.offsetTop - 50,
+          behavior: "smooth",
+        });
       });
   };
 
   async function openEventDetailModal(evOrId) {
     let ev;
-    // Pokud dostaneme ID (číslo nebo string), načteme data. 
+    // Pokud dostaneme ID (číslo nebo string), načteme data.
     // Pokud dostaneme objekt, který už obsahuje media_items, můžeme ho použít rovnou (ušetříme request při uploadu).
     if (typeof evOrId === "object" && evOrId !== null && evOrId.media_items) {
       ev = evOrId;
@@ -335,7 +336,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const calendarBtn = document.getElementById("btn-open-calendar");
     if (calendarBtn && ev.calendar_event_id) {
       // Odkaz do Google Kalendáře pro konkrétní událost
-      const calId = "e07e81e11cfca0e7af8b92264670fa5526de10a89b502c0f4c58a8634fa0682b@group.calendar.google.com";
+      const calId =
+        "e07e81e11cfca0e7af8b92264670fa5526de10a89b502c0f4c58a8634fa0682b@group.calendar.google.com";
       calendarBtn.href = `https://www.google.com/calendar/event?eid=${btoa(ev.calendar_event_id + " " + calId).replace(/=/g, "")}`;
     } else if (calendarBtn) {
       calendarBtn.href = "#";
@@ -456,15 +458,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     btn.disabled = true;
     try {
-      const res = await fetch(`/events/${currentEventId}/subs/${subId}/generate_folder`, {
-        method: "POST"
-      });
+      const res = await fetch(
+        `/events/${currentEventId}/subs/${subId}/generate_folder`,
+        {
+          method: "POST",
+        },
+      );
       if (res.ok) {
         const data = await res.json();
-        window.mirekAlert(`Složka pro záskok vytvořena! Zkopírováno ${data.copied_count} not.`);
+        window.mirekAlert(
+          `Složka pro záskok vytvořena! Zkopírováno ${data.copied_count} not.`,
+        );
       } else {
         const err = await res.json();
-        window.mirekAlert("Chyba: " + (err.detail || "Nepovedlo se vytvořit složku."));
+        window.mirekAlert(
+          "Chyba: " + (err.detail || "Nepovedlo se vytvořit složku."),
+        );
       }
     } catch (e) {
       console.error(e);
@@ -535,7 +544,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.mirekAlert("Soubory úspěšně nahrány!");
     e.target.value = "";
   };
-
 
   uploadPdfInput.onchange = async (e) => {
     if (!currentEventId) return;
@@ -745,17 +753,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch("/ma/instruments");
       if (res.ok) {
         instrumentsCache = await res.json();
-        
+
         // Aktualizace selectu pro záskoky
         const zaskokSelect = document.getElementById("add-zaskok-input");
         if (zaskokSelect) {
-            zaskokSelect.innerHTML = '<option value="">Vyber zástupný nástroj...</option>';
-            instrumentsCache.forEach(inst => {
-                const opt = document.createElement("option");
-                opt.value = inst.name;
-                opt.textContent = inst.name;
-                zaskokSelect.appendChild(opt);
-            });
+          zaskokSelect.innerHTML =
+            '<option value="">Vyber zástupný nástroj...</option>';
+          instrumentsCache.forEach((inst) => {
+            const opt = document.createElement("option");
+            opt.value = inst.name;
+            opt.textContent = inst.name;
+            zaskokSelect.appendChild(opt);
+          });
         }
       }
     } catch (e) {
@@ -793,7 +802,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         newTab.location.href = url;
       } else {
         if (newTab) newTab.close();
-        window.mirekAlert("Dokument se nepodařilo vytvořit. Zkontroluj, zda máš nastavené BAND_DRIVE_ROOT_FOLDER_ID.");
+        window.mirekAlert(
+          "Dokument se nepodařilo vytvořit. Zkontroluj, zda máš nastavené BAND_DRIVE_ROOT_FOLDER_ID.",
+        );
       }
     } catch (e) {
       console.error(e);
@@ -805,15 +816,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  document.getElementById("ma-link-current-list")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    handleDocButton("ma-link-current-list", "current_list");
-  });
-  document.getElementById("ma-link-missing-parts")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    handleDocButton("ma-link-missing-parts", "missing_parts");
-  });
-
+  document
+    .getElementById("ma-link-current-list")
+    ?.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleDocButton("ma-link-current-list", "current_list");
+    });
+  document
+    .getElementById("ma-link-missing-parts")
+    ?.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleDocButton("ma-link-missing-parts", "missing_parts");
+    });
 
   // Databáze skladeb se nyní načítá dynamicky ze serveru přes loadSongs()
 
@@ -832,8 +846,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function renderMA(query = "") {
     if (!maSongsTbody) return;
     if (query === "") {
-        maSongsTbody.innerHTML =
-          "<tr><td colspan='6' style='text-align:center;'>Načítám skladby...</td></tr>";
+      maSongsTbody.innerHTML =
+        "<tr><td colspan='6' style='text-align:center;'>Načítám skladby...</td></tr>";
     }
 
     const songs = await loadSongs();
@@ -844,7 +858,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       (s) =>
         s.title.toLowerCase().includes(query.toLowerCase()) ||
         (s.singer && s.singer.toLowerCase().includes(query.toLowerCase())) ||
-        String(s.number).toLowerCase().includes(query.toLowerCase())
+        String(s.number).toLowerCase().includes(query.toLowerCase()),
     );
 
     if (filteredSongs.length === 0) {
@@ -854,8 +868,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Seřadit: primárně podle kategorie (Standard první), pak podle čísla, pak N
-    const isStandardCat = (cat) => cat === "Standard" || cat === "Standardní repertoár";
-    const catDisplayName = (cat) => isStandardCat(cat) ? "Standardní repertoár" : cat;
+    const isStandardCat = (cat) =>
+      cat === "Standard" || cat === "Standardní repertoár";
+    const catDisplayName = (cat) =>
+      isStandardCat(cat) ? "Standardní repertoár" : cat;
 
     filteredSongs.sort((a, b) => {
       // Standardní repertoár vždy první
@@ -896,7 +912,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const tracked = instrumentsCache.filter((i) => i.is_tracked);
       const missing = [];
       tracked.forEach((inst) => {
-        const hasFile = song.files && song.files.some(f => f.file_type === 'part' && f.instrument_name === inst.name);
+        const hasFile =
+          song.files &&
+          song.files.some(
+            (f) => f.file_type === "part" && f.instrument_name === inst.name,
+          );
         if (!hasFile) missing.push(inst.name);
       });
 
@@ -950,7 +970,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.openEditSongForm = function (song) {
     editingSongId = song.id;
     maAddSongForm.classList.remove("hidden");
-    document.querySelector("#ma-add-song-form h3").textContent = "Upravit skladbu";
+    document.querySelector("#ma-add-song-form h3").textContent =
+      "Upravit skladbu";
     document.getElementById("ma-btn-submit-song").textContent = "Uložit změny";
     document.getElementById("ma-btn-delete-song").classList.remove("hidden");
 
@@ -958,7 +979,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("ma-song-title").value = song.title;
     document.getElementById("ma-song-singer").value = song.singer;
     document.getElementById("ma-song-category").value = song.category;
-    document.getElementById("ma-song-duration").value = formatTime(song.duration);
+    document.getElementById("ma-song-duration").value = formatTime(
+      song.duration,
+    );
 
     document
       .querySelector(".main-content")
@@ -1105,8 +1128,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   maBtnAddSong?.addEventListener("click", () => {
     editingSongId = null;
     maFormSong.reset();
-    document.querySelector("#ma-add-song-form h3").textContent = "Přidat novou skladbu";
-    document.getElementById("ma-btn-submit-song").textContent = "Vytvořit skladbu a složku";
+    document.querySelector("#ma-add-song-form h3").textContent =
+      "Přidat novou skladbu";
+    document.getElementById("ma-btn-submit-song").textContent =
+      "Vytvořit skladbu a složku";
     document.getElementById("ma-btn-delete-song").classList.add("hidden");
     maAddSongForm.classList.remove("hidden");
     document
@@ -1135,7 +1160,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       number: document.getElementById("ma-song-number").value,
       title: document.getElementById("ma-song-title").value,
       singer: document.getElementById("ma-song-singer").value,
-      category: document.getElementById("ma-song-category").value.trim() || "Standardní repertoár",
+      category:
+        document.getElementById("ma-song-category").value.trim() ||
+        "Standardní repertoár",
       duration: durationSec,
     };
 
@@ -1169,19 +1196,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (e) {
       console.error(e);
-      window.mirekAlert("Kritická chyba při komunikaci se serverem: " + e.message);
+      window.mirekAlert(
+        "Kritická chyba při komunikaci se serverem: " + e.message,
+      );
     } finally {
       btnSubmit.disabled = false;
       btnSubmit.textContent = originalBtnText;
     }
   });
 
-  document.getElementById("ma-btn-delete-song")?.addEventListener("click", () => {
-    if (editingSongId) {
-      const title = document.getElementById("ma-song-title").value;
-      window.deleteSong(editingSongId, title);
-    }
-  });
+  document
+    .getElementById("ma-btn-delete-song")
+    ?.addEventListener("click", () => {
+      if (editingSongId) {
+        const title = document.getElementById("ma-song-title").value;
+        window.deleteSong(editingSongId, title);
+      }
+    });
 
   // --- Logic pro nahrávání materiálů ---
   const maUploadPanel = document.getElementById("ma-upload-panel");
@@ -1193,7 +1224,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   window.triggerFolderUpload = function (songId) {
     currentSongIdForUpload = songId;
-    const song = maSongsCache.find(s => s.id === songId);
+    const song = maSongsCache.find((s) => s.id === songId);
     currentSongTitleForUpload = song ? song.title : "";
     maFolderInput.click();
   };
@@ -1206,7 +1237,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     filesToUpload = files.map((file) => {
       // Předáme název písně pro inteligentnější ořezání šumu v názvu souboru
-      const { type, instrumentName } = guessFileType(file.name, matchedInstruments, currentSongTitleForUpload);
+      const { type, instrumentName } = guessFileType(
+        file.name,
+        matchedInstruments,
+        currentSongTitleForUpload,
+      );
       if (type === "part" && instrumentName) {
         matchedInstruments.add(instrumentName);
       }
@@ -1222,28 +1257,37 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function guessFileType(filename, alreadyMatched = new Set(), songTitle = "") {
     let defaultLower = filename.toLowerCase();
-    
+
     // 1. Příprava "analýzovaného" názvu: odstraníme název písně a úvodní track-number / smetí
-    let analyzedName = defaultLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    let analyzedName = defaultLower
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
     if (songTitle) {
-      const normTitle = songTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const normTitle = songTitle
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
       // Odstraníme název písně, pokud se v souboru nachází
       if (analyzedName.includes(normTitle)) {
-          analyzedName = analyzedName.replace(normTitle, "");
+        analyzedName = analyzedName.replace(normTitle, "");
       }
     }
-    
+
     // Odstraníme úvodní "smetí" jako " - 03 ", "04-", track numbers atp.
     analyzedName = analyzedName.replace(/^[\s\d\-_.]+/, "");
 
     const nameForRegex = analyzedName;
     const cleanName = normalizeName(analyzedName);
     const ext = filename.toLowerCase().split(".").pop();
-    
-    // Získáme všechna čísla ze souboru (z toho očištěného názvu) pro párování partů 1, 2, 3...
-    const fileNumbers = (analyzedName.match(/\d+/g) || []).map(n => parseInt(n).toString());
 
-    console.log(`Analyzing file: "${filename}" -> Cleaned: "${analyzedName}" | Numbers: [${fileNumbers.join(", ")}]`);
+    // Získáme všechna čísla ze souboru (z toho očištěného názvu) pro párování partů 1, 2, 3...
+    const fileNumbers = (analyzedName.match(/\d+/g) || []).map((n) =>
+      parseInt(n).toString(),
+    );
+
+    console.log(
+      `Analyzing file: "${filename}" -> Cleaned: "${analyzedName}" | Numbers: [${fileNumbers.join(", ")}]`,
+    );
 
     if (["mp3", "wav", "midi", "mid", "m4a"].includes(ext)) {
       return { type: "audio", instrumentName: null };
@@ -1257,53 +1301,170 @@ document.addEventListener("DOMContentLoaded", async () => {
       return regex.test(text);
     }
 
-    const scoreKeywords = ["partitura", "score", "vse", "full", "direkt", "dirigent", "conductor"];
-    if (scoreKeywords.some(kw => safeIncludes(nameForRegex, kw))) {
+    const scoreKeywords = [
+      "partitura",
+      "score",
+      "vse",
+      "full",
+      "direkt",
+      "dirigent",
+      "conductor",
+    ];
+    if (scoreKeywords.some((kw) => safeIncludes(nameForRegex, kw))) {
       return { type: "score", instrumentName: null };
     }
 
     const instrumentFamilies = [
       { name: "Trumpet", keywords: ["trubka", "trumpet", "trp", "tp", "tpt"] },
-      { name: "Trombone", keywords: ["pozoun", "trombone", "tbn", "trbn", "trb", "tuba", "poz", "trom", "pzn", "tb", "basstrombone", "basstrb", "trombon"] },
+      {
+        name: "Trombone",
+        keywords: [
+          "pozoun",
+          "trombone",
+          "tbn",
+          "trbn",
+          "trb",
+          "tuba",
+          "poz",
+          "trom",
+          "pzn",
+          "tb",
+          "basstrombone",
+          "basstrb",
+          "trombon",
+        ],
+      },
       { name: "Alto Sax", keywords: ["alt", "alto", "asax", "as", "altosax"] },
-      { name: "Tenor Sax", keywords: ["tenor", "tsax", "ts", "ten", "tenorsax"] },
-      { name: "Baryton Sax", keywords: ["baryton", "bari", "baritone", "bsax", "bs", "barisax"] },
+      {
+        name: "Tenor Sax",
+        keywords: ["tenor", "tsax", "ts", "ten", "tenorsax"],
+      },
+      {
+        name: "Baryton Sax",
+        keywords: ["baryton", "bari", "baritone", "bsax", "bs", "barisax"],
+      },
       { name: "Clarinet", keywords: ["klarinet", "clarinet", "cl", "kl"] },
       { name: "Flute", keywords: ["fletna", "flute", "fl", "flau"] },
-      { name: "Bass", keywords: ["basa", "bass", "bg", "bgy", "baskytara", "bas_guit", "basguit", "string", "stringbass"] },
+      {
+        name: "Bass",
+        keywords: [
+          "basa",
+          "bass",
+          "bg",
+          "bgy",
+          "baskytara",
+          "bas_guit",
+          "basguit",
+          "string",
+          "stringbass",
+        ],
+      },
       { name: "Guitar", keywords: ["kytara", "guitar", "gtr", "git", "kyt"] },
-      { name: "Piano", keywords: ["klavir", "piano", "pno", "keys", "keyb", "pianino", "key", "keyboard", "keabord", "kbd", "kybd"] },
-      { name: "Drums", keywords: ["bici", "drums", "perc", "dr", "souprava", "percussion", "drum", "drumset", "set"] },
-      { name: "Main Vocals", keywords: ["mainvocal", "lead", "solo", "zpev", "vocals", "voc", "mainvoice", "voice", "vocal", "text", "lyrics", "sing"] },
-      { name: "Back Vocals", keywords: ["backvocal", "choir", "sbor", "vokaly", "vok", "coro", "bvox", "bgvox", "back"] }
+      {
+        name: "Piano",
+        keywords: [
+          "klavir",
+          "piano",
+          "pno",
+          "keys",
+          "keyb",
+          "pianino",
+          "key",
+          "keyboard",
+          "keabord",
+          "kbd",
+          "kybd",
+        ],
+      },
+      {
+        name: "Drums",
+        keywords: [
+          "bici",
+          "drums",
+          "perc",
+          "dr",
+          "souprava",
+          "percussion",
+          "drum",
+          "drumset",
+          "set",
+        ],
+      },
+      {
+        name: "Main Vocals",
+        keywords: [
+          "mainvocal",
+          "lead",
+          "solo",
+          "zpev",
+          "vocals",
+          "voc",
+          "mainvoice",
+          "voice",
+          "vocal",
+          "text",
+          "lyrics",
+          "sing",
+        ],
+      },
+      {
+        name: "Back Vocals",
+        keywords: [
+          "backvocal",
+          "choir",
+          "sbor",
+          "vokaly",
+          "vok",
+          "coro",
+          "bvox",
+          "bgvox",
+          "back",
+        ],
+      },
     ];
 
     // 0. Priorita: Staré/Archivní verze
-    const isOld = cleanName.includes("stare") || cleanName.includes("old") || cleanName.includes("archiv");
+    const isOld =
+      cleanName.includes("stare") ||
+      cleanName.includes("old") ||
+      cleanName.includes("archiv");
     if (isOld) return { type: "other", instrumentName: null };
 
     // --- LOGIKA PŘIŘAZENÍ ---
 
     // 1. NEJSILNĚJŠÍ: Fuzzy shoda přes rodiny
     for (const family of instrumentFamilies) {
-      if (family.keywords.some(kw => safeIncludes(nameForRegex, kw))) {
-        if (family.name === "Main Vocals" && nameForRegex.includes("choir")) continue;
-        if (family.name === "Bass" && (nameForRegex.includes("trombone") || nameForRegex.includes("pozoun"))) continue;
+      if (family.keywords.some((kw) => safeIncludes(nameForRegex, kw))) {
+        if (family.name === "Main Vocals" && nameForRegex.includes("choir"))
+          continue;
+        if (
+          family.name === "Bass" &&
+          (nameForRegex.includes("trombone") || nameForRegex.includes("pozoun"))
+        )
+          continue;
 
         let candidates = [];
         for (const inst of instrumentsCache) {
           if (alreadyMatched.has(inst.name)) continue;
 
-          const normInstName = inst.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const isInstInFamily = family.keywords.some(kw => {
-             if (kw.length >= 4) return normInstName.includes(kw);
-             const regexInst = new RegExp("(^|[^a-z0-9])" + kw + "($|[^a-z0-9])", "i");
-             return regexInst.test(normInstName);
+          const normInstName = inst.name
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+          const isInstInFamily = family.keywords.some((kw) => {
+            if (kw.length >= 4) return normInstName.includes(kw);
+            const regexInst = new RegExp(
+              "(^|[^a-z0-9])" + kw + "($|[^a-z0-9])",
+              "i",
+            );
+            return regexInst.test(normInstName);
           });
-          
+
           if (isInstInFamily) {
             const numMatch = inst.name.match(/\d+/);
-            const instNumber = numMatch ? parseInt(numMatch[0]).toString() : null;
+            const instNumber = numMatch
+              ? parseInt(numMatch[0]).toString()
+              : null;
 
             if (instNumber && !fileNumbers.includes(instNumber)) continue;
             candidates.push({ inst, instNumber });
@@ -1311,12 +1472,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         if (candidates.length > 0) {
-          console.log(`Found candidates for ${family.name}:`, candidates.map(c => c.inst.name));
-          const isBassTbn = family.name === "Trombone" && (nameForRegex.includes("bass") || nameForRegex.includes("basstrombone"));
+          console.log(
+            `Found candidates for ${family.name}:`,
+            candidates.map((c) => c.inst.name),
+          );
+          const isBassTbn =
+            family.name === "Trombone" &&
+            (nameForRegex.includes("bass") ||
+              nameForRegex.includes("basstrombone"));
           if (isBassTbn) {
-            candidates.sort((a, b) => (parseInt(b.instNumber) || 0) - (parseInt(a.instNumber) || 0));
+            candidates.sort(
+              (a, b) =>
+                (parseInt(b.instNumber) || 0) - (parseInt(a.instNumber) || 0),
+            );
           } else {
-            candidates.sort((a, b) => (parseInt(a.instNumber) || 0) - (parseInt(b.instNumber) || 0));
+            candidates.sort(
+              (a, b) =>
+                (parseInt(a.instNumber) || 0) - (parseInt(b.instNumber) || 0),
+            );
           }
           return { type: "part", instrumentName: candidates[0].inst.name };
         }
@@ -1326,16 +1499,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 2. BACKUP: Přímá shoda slov z názvu nástroje
     for (const inst of instrumentsCache) {
       if (alreadyMatched.has(inst.name)) continue;
-      
-      const normInstName = inst.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const instWords = normInstName.split(/[\s\-_.]+/).filter(w => w.length > 0);
-      
+
+      const normInstName = inst.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      const instWords = normInstName
+        .split(/[\s\-_.]+/)
+        .filter((w) => w.length > 0);
+
       const numMatch = inst.name.match(/\d+/);
       const instNumber = numMatch ? parseInt(numMatch[0]).toString() : null;
 
-      const allWordsMatch = instWords.every(word => {
-          if (word.match(/^\d+$/)) return fileNumbers.includes(word);
-          return safeIncludes(nameForRegex, word);
+      const allWordsMatch = instWords.every((word) => {
+        if (word.match(/^\d+$/)) return fileNumbers.includes(word);
+        return safeIncludes(nameForRegex, word);
       });
 
       if (allWordsMatch && instWords.length > 0) {
@@ -1351,7 +1529,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // Odstranění diakritiky
-      .replace(/[^a-z0-9]/g, "");    // Ponechání jen alfanumerických znaků
+      .replace(/[^a-z0-9]/g, ""); // Ponechání jen alfanumerických znaků
   }
 
   function renderFilesToUpload() {
@@ -1413,32 +1591,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (filesToUpload.length === 0) return;
     maBtnConfirmUpload.disabled = true;
     const originalText = maBtnConfirmUpload.textContent;
-    
+
     try {
       let count = 0;
       for (const item of filesToUpload) {
         count++;
         maBtnConfirmUpload.textContent = `Nahrávám (${count}/${filesToUpload.length})...`;
-        
+
         const formData = new FormData();
         formData.append("file", item.file);
         formData.append("file_type", item.type);
         if (item.instrumentName)
           formData.append("instrument_name", item.instrumentName);
 
-        const res = await fetch(
-          `/ma/songs/${currentSongIdForUpload}/files`,
-          {
-            method: "POST",
-            body: formData,
-          },
-        );
+        const res = await fetch(`/ma/songs/${currentSongIdForUpload}/files`, {
+          method: "POST",
+          body: formData,
+        });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || "Chyba při nahrávání souboru " + item.file.name);
+          throw new Error(
+            errData.detail || "Chyba při nahrávání souboru " + item.file.name,
+          );
         }
       }
-      window.mirekAlert("Všechny soubory byly nahrány a pojmenovány podle konvence.");
+      window.mirekAlert(
+        "Všechny soubory byly nahrány a pojmenovány podle konvence.",
+      );
       maUploadPanel.classList.add("hidden");
       renderMA();
       loadMADocLinks();
@@ -1497,8 +1676,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Seřadit stejně jako v MA
-    const isStandardCatPM = (cat) => cat === "Standard" || cat === "Standardní repertoár";
-    const catDisplayNamePM = (cat) => isStandardCatPM(cat) ? "Standardní repertoár" : cat;
+    const isStandardCatPM = (cat) =>
+      cat === "Standard" || cat === "Standardní repertoár";
+    const catDisplayNamePM = (cat) =>
+      isStandardCatPM(cat) ? "Standardní repertoár" : cat;
 
     filtered.sort((a, b) => {
       // Standardní repertoár vždy první
@@ -1579,22 +1760,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const statsContent = document.getElementById("stats-content");
 
   if (btnStats) {
-      btnStats.addEventListener("click", async () => {
-          statsContent.innerHTML = "Načítám statistiky...";
-          statsModalOverlay.style.display = "flex";
-          setTimeout(() => statsModalOverlay.style.opacity = "1", 10);
+    btnStats.addEventListener("click", async () => {
+      statsContent.innerHTML = "Načítám statistiky...";
+      statsModalOverlay.style.display = "flex";
+      setTimeout(() => (statsModalOverlay.style.opacity = "1"), 10);
 
-          try {
-              const res = await fetch("/events/stats/songs");
-              if (!res.ok) throw new Error("Chyba při načítání statistik");
-              const data = await res.json();
-              
-              if (data.length === 0) {
-                  statsContent.innerHTML = "Zatím nebyly odehrány žádné skladby na událostech.";
-                  return;
-              }
+      try {
+        const res = await fetch("/events/stats/songs");
+        if (!res.ok) throw new Error("Chyba při načítání statistik");
+        const data = await res.json();
 
-              let html = `<table style="width:100%; text-align: left; border-collapse: collapse;">
+        if (data.length === 0) {
+          statsContent.innerHTML =
+            "Zatím nebyly odehrány žádné skladby na událostech.";
+          return;
+        }
+
+        let html = `<table style="width:100%; text-align: left; border-collapse: collapse;">
                             <thead>
                                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
                                     <th style="padding: 8px;">Píseň</th>
@@ -1604,28 +1786,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 </tr>
                             </thead>
                             <tbody>`;
-              data.forEach(s => {
-                  const lastPlayedDate = s.last_played ? new Date(s.last_played).toLocaleDateString("cs-CZ") : "Nikdy";
-                  html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+        data.forEach((s) => {
+          const lastPlayedDate = s.last_played
+            ? new Date(s.last_played).toLocaleDateString("cs-CZ")
+            : "Nikdy";
+          html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                             <td style="padding: 8px; font-weight: bold;">${s.title}</td>
                             <td style="padding: 8px; font-size: 0.85em; opacity: 0.8;">${s.singer || ""}</td>
                             <td style="padding: 8px; color: var(--accent); font-weight: 800; text-align: center;">${s.count}x</td>
                             <td style="padding: 8px; font-size: 0.85em;">${lastPlayedDate}</td>
                            </tr>`;
-              });
-              html += `</tbody></table>`;
-              statsContent.innerHTML = html;
-          } catch (err) {
-              statsContent.innerHTML = `<span style="color:red">${err.message}</span>`;
-          }
-      });
+        });
+        html += `</tbody></table>`;
+        statsContent.innerHTML = html;
+      } catch (err) {
+        statsContent.innerHTML = `<span style="color:red">${err.message}</span>`;
+      }
+    });
   }
 
   if (statsModalClose) {
-      statsModalClose.addEventListener("click", () => {
-          statsModalOverlay.style.opacity = "0";
-          setTimeout(() => statsModalOverlay.style.display = "none", 400);
-      });
+    statsModalClose.addEventListener("click", () => {
+      statsModalOverlay.style.opacity = "0";
+      setTimeout(() => (statsModalOverlay.style.display = "none"), 400);
+    });
   }
 
   // Aktivace bloku na klik
@@ -1885,7 +2069,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     function limitText(str, limit) {
       if (!str) return "";
       if (str.length <= limit) return str;
-      return str.substring(0, limit) + "…";
+      let truncated = str.substring(0, limit);
+      const lastSpaceIndex = truncated.lastIndexOf(" ");
+      if (lastSpaceIndex > 0) {
+        truncated = truncated.substring(0, lastSpaceIndex);
+      }
+      return truncated + "…";
     }
 
     const blocks = document.querySelectorAll(".pm-block");
@@ -1968,7 +2157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               margin: [0, cellMargin, 0, cellMargin],
             },
             {
-              text: limitText(li.dataset.title.toUpperCase(), 30),
+              text: limitText(li.dataset.title.toUpperCase(), 26),
               bold: true,
               noWrap: true,
               margin: [0, cellMargin, 0, cellMargin],
@@ -2103,13 +2292,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       pdfMake.createPdf(docDef).getBlob(async (blob) => {
         const formData = new FormData();
         formData.append("file", blob, `${title}.pdf`);
-        
+
         // Extrakce ID skladeb v pořadí, jak jsou v playlistu
         const songIds = [];
-        document.querySelectorAll("#pm-blocks-container .target-list li.song-item").forEach(li => {
+        document
+          .querySelectorAll("#pm-blocks-container .target-list li.song-item")
+          .forEach((li) => {
             const id = li.dataset.songId;
             if (id) songIds.push(parseInt(id, 10));
-        });
+          });
         formData.append("playlist_songs", JSON.stringify(songIds));
         try {
           const res = await fetch(`/events/${eventId}/playlist_attach`, {
@@ -2117,10 +2308,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             body: formData,
           });
           if (res.ok) {
-            window.mirekAlert("Playlist byl přímo připojen do Kalendáře k události!");
+            window.mirekAlert(
+              "Playlist byl přímo připojen do Kalendáře k události!",
+            );
           } else {
             const errData = await res.json().catch(() => ({}));
-            window.mirekAlert("Mirek hlásí chybu při nahrávání: " + (errData.detail || res.statusText || "Neznámá chyba"));
+            window.mirekAlert(
+              "Mirek hlásí chybu při nahrávání: " +
+                (errData.detail || res.statusText || "Neznámá chyba"),
+            );
           }
         } catch (e) {
           window.mirekAlert("Kritická chyba spojení při nahrávání.");
@@ -2215,7 +2411,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const pmExportCalBtn = document.getElementById("pm-export-cal");
 
       if (pmEventSelect.selectedIndex > 0) {
-        const txt = pmEventSelect.options[pmEventSelect.selectedIndex].textContent;
+        const txt =
+          pmEventSelect.options[pmEventSelect.selectedIndex].textContent;
         if (pmTitle) pmTitle.value = txt; // Keeps Date + Title
         if (pmExportCalBtn) {
           pmExportCalBtn.disabled = false;

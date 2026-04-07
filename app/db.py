@@ -3,14 +3,17 @@ import shutil
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-# Lokálně: ./bandmanager.db
-# Na Railway: /data/bandmanager.db (Volume)
+# Lokální fallback (nebo definice přes prostředí)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bandmanager.db")
 
-# Záchranné nahrání lokální DB do Volume
-if "sqlite:////data/" in DATABASE_URL:
-    vol_path = DATABASE_URL.replace("sqlite:///", "")
-    local_path = "./bandmanager.db"
+# Záchranné nahrání lokální DB do Volume a automatické nastavení
+vol_dir = "/data"
+vol_path = "/data/bandmanager.db"
+local_path = "./bandmanager.db"
+
+if os.path.isdir(vol_dir):
+    # Přepíšeme URL napřímo - pro případ, že chybí systémová proměnná
+    DATABASE_URL = f"sqlite:///{vol_path}"
     
     # Pokud máme v Gitu nahranou lokální výchozí databázi...
     if os.path.exists(local_path):

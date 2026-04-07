@@ -92,3 +92,24 @@ def backup_db(secret: str = ""):
         filename="bandmanager_backup.db",
         media_type="application/octet-stream",
     )
+
+
+@app.get("/admin/force-restore")
+def force_restore():
+    import os
+    import shutil
+    
+    vol_db = "/data/bandmanager.db"
+    local_db = "./bandmanager.db"
+    
+    if not os.path.exists(vol_db):
+        return {"error": "Volume /data/bandmanager.db neexistuje (asi nemáš zprovozněné Volume)."}
+        
+    if not os.path.exists(local_db):
+        return {"error": "Lokální záloha bandmanager.db v rootu neexistuje."}
+        
+    try:
+        shutil.copy2(local_db, vol_db)
+        return {"status": "SUCCESS", "message": "Lokální databáze byla úspěšně zkopírována do trvalého Volume na Railway!"}
+    except Exception as e:
+        return {"status": "ERROR", "message": str(e)}

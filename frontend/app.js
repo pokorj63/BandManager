@@ -2157,7 +2157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               margin: [0, cellMargin, 0, cellMargin],
             },
             {
-              text: limitText(li.dataset.title.toUpperCase(), 26),
+              text: limitText(li.dataset.title.toUpperCase(), 23),
               bold: true,
               noWrap: true,
               margin: [0, cellMargin, 0, cellMargin],

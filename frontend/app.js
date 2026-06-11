@@ -949,7 +949,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <td>
                     <div style="display: flex; gap: 5px;">
                         <button class="btn btn-ghost" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.openEditSongForm(${JSON.stringify(song).replace(/"/g, "&quot;")})" title="Upravit data"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.triggerFolderUpload(${song.id})" title="Nahrát noty/audio"><i class="fa-solid fa-cloud-arrow-up"></i> Nahrát</button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.triggerFileUpload(${song.id})" title="Nahrát soubory"><i class="fa-solid fa-file-arrow-up"></i> Soubory</button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.triggerFolderUpload(${song.id})" title="Nahrát celou složku"><i class="fa-solid fa-folder-open"></i> Složka</button>
                     </div>
                 </td>
             `;
@@ -1217,6 +1218,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Logic pro nahrávání materiálů ---
   const maUploadPanel = document.getElementById("ma-upload-panel");
   const maFolderInput = document.getElementById("ma-folder-input");
+  const maFileInput = document.getElementById("ma-file-input");
   const maFilesList = document.getElementById("ma-upload-files-list");
   const maBtnConfirmUpload = document.getElementById("ma-btn-confirm-upload");
   const maBtnCancelUpload = document.getElementById("ma-btn-cancel-upload");
@@ -1229,8 +1231,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     maFolderInput.click();
   };
 
-  maFolderInput?.addEventListener("change", (e) => {
-    const files = Array.from(e.target.files);
+  window.triggerFileUpload = function (songId) {
+    currentSongIdForUpload = songId;
+    const song = maSongsCache.find((s) => s.id === songId);
+    currentSongTitleForUpload = song ? song.title : "";
+    maFileInput.click();
+  };
+
+  function processSelectedFiles(files) {
     if (files.length === 0) return;
 
     const matchedInstruments = new Set();
@@ -1251,8 +1259,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderFilesToUpload();
     maUploadPanel.classList.remove("hidden");
     maUploadPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  maFolderInput?.addEventListener("change", (e) => {
+    processSelectedFiles(Array.from(e.target.files));
     // Reset inputu aby šlo vybrat stejnou složku znovu
     maFolderInput.value = "";
+  });
+
+  maFileInput?.addEventListener("change", (e) => {
+    processSelectedFiles(Array.from(e.target.files));
+    // Reset inputu aby šlo vybrat stejné soubory znovu
+    maFileInput.value = "";
   });
 
   function guessFileType(filename, alreadyMatched = new Set(), songTitle = "") {
@@ -2403,12 +2421,198 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // Pomocné funkce pro programové sestavení playlistu
+  window.addSongToPlaylist = function (song, targetList) {
+    if (!targetList) return;
+    const li = document.createElement("li");
+    li.className = "pm-item song-item";
+    li.dataset.songId = song.id;
+    li.dataset.duration = song.duration;
+    li.dataset.num = song.number;
+    li.dataset.title = song.title;
+    li.dataset.singer = song.singer || "";
+    li.addEventListener("dblclick", (e) => e.preventDefault());
+    targetList.appendChild(li);
+    window.updateBlockTime({ target: targetList });
+  };
+
+  window.addNoteToPlaylist = function (text, color, targetList) {
+    if (!targetList) return;
+    const li = document.createElement("li");
+    li.className = "pm-item";
+    li.dataset.duration = "0";
+    li.dataset.isNote = "true";
+    li.dataset.title = text;
+
+    const isRed = color === "red";
+    const pdfColor = isRed ? "#ef4444" : "inherit";
+    const indicatorBg = isRed ? "#ef4444" : "transparent";
+    const indicatorBorder = isRed ? "#ef4444" : "#cccccc";
+
+    li.innerHTML = `
+            <div class="pm-item-content" style="flex: 1;">
+                <input type="text" class="pm-note-input" value="${text}" style="background: transparent; border: none; outline: none; color: ${pdfColor}; font-size: 1.2rem; font-weight: bold; font-family: 'CalibriPdf', sans-serif; width: 100%;" onfocus="this.select();">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="btn-color-toggle" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0;" data-color="${isRed ? 'red' : 'white'}" title="Přepnout barvu na červenou">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; border: 2px solid ${indicatorBorder}; background: ${indicatorBg}; transition: all 0.2s;" class="color-indicator"></div>
+                </button>
+                <button class="btn-remove-item" onclick="this.closest('li').remove(); window.updateBlockTime({target: this.closest('.target-list')});" title="Odebrat">✖</button>
+            </div>
+        `;
+
+    const noteInput = li.querySelector(".pm-note-input");
+    const colorToggle = li.querySelector(".btn-color-toggle");
+    const indicator = colorToggle.querySelector(".color-indicator");
+
+    noteInput.addEventListener("input", (e) => {
+      li.dataset.title = e.target.value;
+    });
+
+    colorToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (colorToggle.dataset.color === "white") {
+        colorToggle.dataset.color = "red";
+        indicator.style.background = "#ef4444";
+        indicator.style.borderColor = "#ef4444";
+        noteInput.style.color = "#ef4444";
+      } else {
+        colorToggle.dataset.color = "white";
+        indicator.style.background = "transparent";
+        indicator.style.borderColor = "#cccccc";
+        noteInput.style.color = "inherit";
+      }
+    });
+
+    targetList.appendChild(li);
+    window.updateBlockTime({ target: targetList });
+  };
+
+  window.loadPlaylistStructure = function (data) {
+    const pmTitle = document.getElementById("pm-playlist-title");
+    if (pmTitle && data.title) {
+      pmTitle.value = data.title;
+    }
+
+    const pmBlocksContainer = document.getElementById("pm-blocks-container");
+    if (!pmBlocksContainer) return;
+    pmBlocksContainer.innerHTML = "";
+    blockCount = 0;
+
+    data.blocks.forEach((blockData) => {
+      blockCount++;
+      const blockHTML = document.createElement("div");
+      blockHTML.className = "pm-block" + (blockCount === 1 ? " active" : "");
+      blockHTML.dataset.blockId = blockCount;
+      blockHTML.innerHTML = `
+            <div class="pm-block-header">
+                <input type="text" class="pm-block-title" value="${blockData.title || (blockCount + '. Blok')}">
+                <div class="pm-block-ui-actions">
+                    <div class="pm-block-stats">Čas: <span class="pm-time">00:00</span> | Skladby: <span class="pm-count">0</span></div>
+                    <button class="btn btn-secondary btn-clear-block" onclick="window.clearBlock(this)">Vymazat vše</button>
+                    <button class="btn btn-secondary btn-remove-block" onclick="window.removeBlock(this)">Odstranit blok</button>
+                </div>
+            </div>
+            <ul class="pm-list target-list" data-block-id="${blockCount}"></ul>
+        `;
+      pmBlocksContainer.appendChild(blockHTML);
+      const targetList = blockHTML.querySelector(".target-list");
+      initBlockSortable(targetList);
+
+      blockData.items.forEach((item) => {
+        if (item.type === "song") {
+          window.addSongToPlaylist(item, targetList);
+        } else if (item.type === "note") {
+          window.addNoteToPlaylist(item.text, item.color || "white", targetList);
+        } else if (item.type === "song_not_found") {
+          window.addNoteToPlaylist(`[NENALEZENO] ${item.title} (${item.number})`, "red", targetList);
+        }
+      });
+    });
+
+    updateBlockHeadersVisibility();
+    updateWYSIWYGScaling();
+  };
+
+  // Import PDF Logika
+  const pmBtnImportPdf = document.getElementById("pm-btn-import-pdf");
+  const pmPdfImportInput = document.getElementById("pm-pdf-import-input");
+  if (pmBtnImportPdf && pmPdfImportInput) {
+    pmBtnImportPdf.addEventListener("click", () => pmPdfImportInput.click());
+    pmPdfImportInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const btnText = pmBtnImportPdf.innerHTML;
+      pmBtnImportPdf.disabled = true;
+      pmBtnImportPdf.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsování...';
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("/ma/playlist/parse_pdf", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          window.loadPlaylistStructure(data);
+          window.mirekAlert("Playlist byl úspěšně načten z PDF!");
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          window.mirekAlert("Chyba při parsování: " + (errData.detail || "Neznámá chyba"));
+        }
+      } catch (err) {
+        console.error(err);
+        window.mirekAlert("Kritická chyba spojení při parsování PDF.");
+      } finally {
+        pmBtnImportPdf.disabled = false;
+        pmBtnImportPdf.innerHTML = btnText;
+        pmPdfImportInput.value = "";
+      }
+    });
+  }
+
+  // Upravit přiložený Logika
+  const pmBtnLoadAttached = document.getElementById("pm-btn-load-attached");
+  if (pmBtnLoadAttached) {
+    pmBtnLoadAttached.addEventListener("click", async () => {
+      const eventId = pmEventSelect.value;
+      if (!eventId) return;
+
+      const btnText = pmBtnLoadAttached.innerHTML;
+      pmBtnLoadAttached.disabled = true;
+      pmBtnLoadAttached.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Načítám...';
+
+      try {
+        const res = await fetch(`/events/${eventId}/playlist/parse`);
+        if (res.ok) {
+          const data = await res.json();
+          window.loadPlaylistStructure(data);
+          window.mirekAlert("Přiložený playlist byl úspěšně načten a můžete jej editovat!");
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          window.mirekAlert("Chyba při načítání: " + (errData.detail || "Playlist nebyl nalezen."));
+        }
+      } catch (err) {
+        console.error(err);
+        window.mirekAlert("Kritická chyba při stahování playlistu z kalendáře.");
+      } finally {
+        pmBtnLoadAttached.disabled = false;
+        pmBtnLoadAttached.innerHTML = btnText;
+      }
+    });
+  }
+
   // Registrace listeneru pro pm-event-select (pouze jednou)
   const pmEventSelect = document.getElementById("pm-event-select");
   if (pmEventSelect) {
     pmEventSelect.addEventListener("change", (e) => {
       const pmTitle = document.getElementById("pm-playlist-title");
       const pmExportCalBtn = document.getElementById("pm-export-cal");
+      const loadAttachedBtn = document.getElementById("pm-btn-load-attached");
 
       if (pmEventSelect.selectedIndex > 0) {
         const txt =
@@ -2418,11 +2622,17 @@ document.addEventListener("DOMContentLoaded", async () => {
           pmExportCalBtn.disabled = false;
           pmExportCalBtn.title = "";
         }
+        if (loadAttachedBtn) {
+          loadAttachedBtn.style.display = "inline-block";
+        }
       } else {
         if (pmTitle) pmTitle.value = "";
         if (pmExportCalBtn) {
           pmExportCalBtn.disabled = true;
           pmExportCalBtn.title = "Vyberte událost nahoře";
+        }
+        if (loadAttachedBtn) {
+          loadAttachedBtn.style.display = "none";
         }
       }
     });

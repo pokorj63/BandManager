@@ -4,6 +4,11 @@ import calendar as calmod
 import os
 import json
 from datetime import date, timedelta
+import io
+import re
+import unicodedata
+from pypdf import PdfReader
+from googleapiclient.http import MediaIoBaseDownload
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
@@ -619,7 +624,7 @@ def generate_sub_folder(
 
     # Postupně v pořadí z playlistu hledat a kopírovat příslušný part
     copied = 0
-    for idx, song_id in enumerate(ev.playlist_songs, start=1):
+    for song_id in ev.playlist_songs:
         song_info = db.query(Song).filter(Song.id == song_id).first()
         part_file = (
             db.query(SongFile)
@@ -633,7 +638,7 @@ def generate_sub_folder(
 
         if part_file and song_info:
             ext = os.path.splitext(part_file.name)[1]
-            new_name = f"{idx:02d} - {song_info.title}{ext}"
+            new_name = f"{song_info.number} - {song_info.title}{ext}"
             try:
                 copy_metadata = {
                     "name": new_name,
@@ -769,3 +774,174 @@ def sync_calendar(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Sync error: {e}")
         raise HTTPException(status_code=500, detail="Error syncing from calendar")
+
+
+def find_song_in_db(num: str, title: str, db: Session):
+    def normalize_str(s: str) -> str:
+        if not s:
+            return ""
+        s = unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('ASCII')
+        return s.strip().upper()
+
+    if num and num != "N":
+        song = db.query(Song).filter(Song.number == num).first()
+        if song:
+            return song
+
+    norm_pdf_title = normalize_str(title).replace("…", "").replace("...", "").strip()
+    if not norm_pdf_title:
+        return None
+
+    all_songs = db.query(Song).all()
+    for s in all_songs:
+        norm_db_title = normalize_str(s.title)
+        db_trunc = norm_db_title[:23]
+        if norm_db_title.startswith(norm_pdf_title) or db_trunc.startswith(norm_pdf_title):
+            return s
+
+    return None
+
+
+def parse_pdf_to_playlist_structure(pdf_bytes: bytes, db: Session) -> dict:
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    text_lines = []
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text_lines.extend(page_text.splitlines())
+
+    lines = [line.strip() for line in text_lines if line.strip()]
+
+    playlist_title = "PLAYLIST"
+    if lines:
+        first_line = lines[0]
+        if first_line.upper().startswith("PLAYLIST"):
+            playlist_title = first_line
+            playlist_title = re.sub(r"^PLAYLIST\s*[-:]?\s*", "", playlist_title, flags=re.IGNORECASE)
+            lines = lines[1:]
+
+    blocks = []
+    current_block = {"title": "1. Blok", "items": []}
+
+    song_regex = re.compile(r"^\s*(\d+)\.\s+(.*?)\s+\((.*?)\)(.*)$")
+    block_regex = re.compile(r"^\s*(\d+)\.\s*(Blok|Block|Set|Sekce|Setlist.*)$", re.IGNORECASE)
+
+    for line in lines:
+        song_match = song_regex.match(line)
+        if song_match:
+            idx_str, title_str, num_str, singer_str = song_match.groups()
+            song = find_song_in_db(num_str, title_str, db)
+            if song:
+                current_block["items"].append({
+                    "type": "song",
+                    "id": song.id,
+                    "number": song.number,
+                    "title": song.title,
+                    "singer": song.singer,
+                    "duration": song.duration
+                })
+            else:
+                current_block["items"].append({
+                    "type": "song_not_found",
+                    "number": num_str,
+                    "title": title_str,
+                    "singer": singer_str.strip()
+                })
+            continue
+
+        block_match = block_regex.match(line)
+        if block_match:
+            if current_block["items"]:
+                blocks.append(current_block)
+            current_block = {"title": line, "items": []}
+            continue
+
+        current_block["items"].append({
+            "type": "note",
+            "text": line
+        })
+
+    if current_block["items"] or not blocks:
+        blocks.append(current_block)
+
+    return {
+        "title": playlist_title,
+        "blocks": blocks
+    }
+
+
+@router.get("/{event_id}/playlist/parse")
+def parse_event_playlist(
+    event_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    ev = db.query(Event).filter(Event.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    token = require_token(request)
+    creds = get_credentials_from_session(token)
+    drv = drive_service(creds)
+
+    playlist_item = (
+        db.query(MediaItem)
+        .filter(
+            MediaItem.event_id == event_id,
+            MediaItem.category == "playlist"
+        )
+        .first()
+    )
+
+    if not playlist_item:
+        playlist_item = (
+            db.query(MediaItem)
+            .filter(
+                MediaItem.event_id == event_id,
+                MediaItem.name.like("Playlist%")
+            )
+            .first()
+        )
+
+    if playlist_item:
+        try:
+            drive_req = drv.files().get_media(fileId=playlist_item.drive_file_id)
+            fh = io.BytesIO()
+            downloader = MediaIoBaseDownload(fh, drive_req)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+
+            pdf_bytes = fh.getvalue()
+            parsed_playlist = parse_pdf_to_playlist_structure(pdf_bytes, db)
+            return parsed_playlist
+        except Exception as e:
+            print(f"Failed to download or parse PDF: {e}")
+
+    if ev.playlist_songs:
+        items = []
+        for song_id in ev.playlist_songs:
+            song = db.query(Song).filter(Song.id == song_id).first()
+            if song:
+                items.append({
+                    "type": "song",
+                    "id": song.id,
+                    "number": song.number,
+                    "title": song.title,
+                    "singer": song.singer,
+                    "duration": song.duration
+                })
+        return {
+            "title": f"{ev.date} {ev.title}",
+            "blocks": [
+                {
+                    "title": "1. Blok",
+                    "items": items
+                }
+            ]
+        }
+
+    raise HTTPException(
+        status_code=404,
+        detail="No playlist PDF or song list found for this event."
+    )

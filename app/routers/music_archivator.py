@@ -535,3 +535,22 @@ def generate_ma_documents(request: Request, db: Session = Depends(get_db)):
 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/playlist/parse_pdf")
+async def parse_playlist_pdf_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        pdf_bytes = await file.read()
+        from app.routers.events import parse_pdf_to_playlist_structure
+        parsed = parse_pdf_to_playlist_structure(pdf_bytes, db)
+        return parsed
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chyba při parsování PDF: {str(e)}"
+        )

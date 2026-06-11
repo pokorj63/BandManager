@@ -403,18 +403,23 @@
                         <h2>PlaylistMaker <button class="btn-help"
                                 onclick="window.showMirek('PlaylistMaker \u2013 tvorba setlistů a export.\n\nCo umí:\n• Prohlížet celý archiv skladeb, vyhledávát.\n• Přetáhni nebo dvojklikni pro výběr. To vpravo je jen interaktivní náhled, výsledné PDF může vypadat trochu jinak.\n• Možnost přidat více bloků, nakliknutý označen červeně\n• Zkrze poznámky jde přidat další text. Lze zvýraznit červeně.\n• Export do Kalendáře: přímo nahrá PDF jako přílohu ke Google události, nové nahrání automaticky nahrazuje staré.\n• Titulek se předvyplní z názvu vybrané události.')"
                                 title="Nápověda">?</button></h2>
-                        <div
-                            style="display: flex; gap: 10px; align-items: center; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 12px;">
-                            <label for="pm-event-select"
-                                style="color: var(--accent); font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">Navázat
-                                na událost:</label>
-                            <select id="pm-event-select"
-                                style="background: transparent; border: none; outline: none; color: white; cursor: pointer; font-weight: 600; padding: 4px; appearance: none; -webkit-appearance: none; padding-right: 15px;">
-                                <option value="" style="color: black;">Nepřiřazeno</option>
-                                <!-- Generováno JS -->
-                            </select>
-                            <i class="fa-solid fa-chevron-down"
-                                style="color: var(--text-muted); font-size: 0.8rem; pointer-events: none; margin-left: -10px;"></i>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div
+                                style="display: flex; gap: 10px; align-items: center; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 12px;">
+                                <label for="pm-event-select"
+                                    style="color: var(--accent); font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">Navázat
+                                    na událost:</label>
+                                <select id="pm-event-select"
+                                    style="background: transparent; border: none; outline: none; color: white; cursor: pointer; font-weight: 600; padding: 4px; appearance: none; -webkit-appearance: none; padding-right: 15px;">
+                                    <option value="" style="color: black;">Nepřiřazeno</option>
+                                    <!-- Generováno JS -->
+                                </select>
+                                <i class="fa-solid fa-chevron-down"
+                                    style="color: var(--text-muted); font-size: 0.8rem; pointer-events: none; margin-left: -10px;"></i>
+                            </div>
+                            <button id="pm-btn-load-attached" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; display: none; white-space: nowrap;" title="Načíst a upravit playlist z kalendáře této události">
+                                <i class="fa-solid fa-file-signature"></i> Upravit přiložený
+                            </button>
                         </div>
                     </header>
                     <div class="pm-container">
@@ -428,15 +433,19 @@
                                         <i class="fa-solid fa-chart-column"></i>
                                     </button>
                                 </div>
-                                <div class="pm-tools" style="display: flex; gap: 8px;">
+                                <div class="pm-tools" style="display: flex; gap: 8px; flex-wrap: wrap;">
                                     <input type="text" id="pm-search" placeholder="Hledat skladbu..." class="pm-input"
-                                        style="flex: 1; min-width: 0; padding: 6px 10px; font-size: 0.9rem;">
+                                        style="flex: 1; min-width: 120px; padding: 6px 10px; font-size: 0.9rem;">
                                     <button class="btn btn-secondary" id="pm-add-note"
                                         style="padding: 6px 10px; font-size: 0.9rem; white-space: nowrap;"
                                         title="Přidat poznámku, pauzu apod.">+ Poznámka</button>
                                     <button class="btn btn-secondary" id="pm-add-set"
                                         style="padding: 6px 10px; font-size: 0.9rem; white-space: nowrap;"
                                         title="Nový blok pro dělení playlistu">+ Blok</button>
+                                    <button class="btn btn-secondary" id="pm-btn-import-pdf"
+                                        style="padding: 6px 10px; font-size: 0.9rem; white-space: nowrap;"
+                                        title="Načíst playlist z exportovaného PDF"><i class="fa-solid fa-file-import"></i> Načíst PDF</button>
+                                    <input type="file" id="pm-pdf-import-input" accept="application/pdf" class="hidden">
                                 </div>
                             </div>
                             <div class="pm-list-wrapper">
@@ -648,6 +657,7 @@
 
     <!-- Hidden inputy pro výběr souborů/složky -->
     <input type="file" id="ma-folder-input" webkitdirectory mozdirectory directory multiple class="hidden">
+    <input type="file" id="ma-file-input" multiple class="hidden">
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="/static/app.js?v=5"></script>

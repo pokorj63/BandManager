@@ -9,7 +9,7 @@ import re
 import unicodedata
 from pypdf import PdfReader
 from googleapiclient.http import MediaIoBaseDownload
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -412,6 +412,52 @@ def create_sub(event_id: int, payload: EventSubCreate, db: Session = Depends(get
     db.commit()
     db.refresh(sub)
     return sub
+
+
+@router.get("/{event_id}/playlist_pdf")
+def get_event_playlist_pdf(
+    event_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    ev = db.query(Event).filter(Event.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Událost nenalezena.")
+
+    playlist_item = (
+        db.query(MediaItem)
+        .filter(
+            MediaItem.event_id == event_id,
+            (MediaItem.category == "playlist") | (MediaItem.name.like("Playlist%")),
+        )
+        .order_by(MediaItem.created_at.desc())
+        .first()
+    )
+    if not playlist_item:
+        raise HTTPException(
+            status_code=404, detail="K této události není přiložen žádný playlist."
+        )
+
+    token = require_token(request)
+    creds = get_credentials_from_session(token)
+    drv = drive_service(creds)
+
+    drive_req = drv.files().get_media(fileId=playlist_item.drive_file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, drive_req)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+
+    filename = playlist_item.name or "Playlist.pdf"
+    return Response(
+        content=fh.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
 
 
 @router.patch("/{event_id}/subs/{sub_id}", response_model=EventSubOut)

@@ -350,22 +350,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     const playlist = playlists[0];
     if (playlist) {
       detailPlaylistInfo.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 14px; justify-content: center; padding: 4px 0;">
-          <i class="fa-solid fa-file-pdf" style="font-size: 2.2rem; color: #ef4444;"></i>
-          <div style="text-align: left;">
-            <div style="font-weight: 700; color: #fff; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
-              Playlist připojen <span style="background: rgba(34, 197, 94, 0.2); color: #4ade80; font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: bold;">PDF</span>
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px; color: #fff; font-weight: 700; font-size: 0.95rem;">
+              <i class="fa-solid fa-file-lines" style="color: var(--accent);"></i>
+              <span>${playlist.name || "Přiložený playlist"}</span>
             </div>
-            <a href="https://drive.google.com/file/d/${playlist.drive_file_id}/view" target="_blank" style="color: #60a5fa; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;">
-              <i class="fa-brands fa-google-drive"></i> Otevřít na Google Disku
-            </a>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <a href="https://drive.google.com/file/d/${playlist.drive_file_id}/view" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="Otevřít na Google Disku">
+                <i class="fa-brands fa-google-drive"></i> Disk
+              </a>
+              <a href="/events/${currentEventId}/playlist_pdf" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="Otevřít v novém okně / stáhnout">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Samostatně
+              </a>
+            </div>
+          </div>
+          <div style="width: 100%; height: 320px; border-radius: 10px; overflow: hidden; border: 1px solid var(--glass-border); background: #161622; position: relative;">
+            <iframe src="/events/${currentEventId}/playlist_pdf#toolbar=0&navpanes=0" style="width: 100%; height: 100%; border: none; display: block;" title="Náhled přiloženého playlistu"></iframe>
           </div>
         </div>
       `;
     } else {
       detailPlaylistInfo.innerHTML = `
-        <div style="color: var(--text-muted); font-size: 0.9rem; padding: 6px 0; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <i class="fa-regular fa-file-lines" style="font-size: 1.1rem;"></i> Zatím nebyl nahrán playlist pro tento koncert.
+        <div style="color: var(--text-muted); font-size: 0.9rem; padding: 20px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;">
+          <i class="fa-regular fa-file-lines" style="font-size: 1.5rem; opacity: 0.4;"></i>
+          <span>Zatím nebyl nahrán playlist pro tento koncert.</span>
         </div>
       `;
     }
@@ -390,8 +399,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       li.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
           <strong style="color: #fff; font-size: 0.95rem;">${sub.role}</strong>
-          <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: ${sub.is_secured ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"}; color: ${sub.is_secured ? "#4ade80" : "#f87171"}; border: 1px solid ${sub.is_secured ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"};">
-            ${sub.is_secured ? "✓ Zařízeno" : "⏳ Shání se"}
+          <span style="font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: ${sub.is_secured ? "rgba(255, 255, 255, 0.08)" : "rgba(205, 33, 60, 0.2)"}; color: ${sub.is_secured ? "#cbd5e1" : "var(--accent)"}; border: 1px solid ${sub.is_secured ? "rgba(255, 255, 255, 0.15)" : "rgba(205, 33, 60, 0.4)"};">
+            ${sub.is_secured ? "✓ Zařízeno" : "Shání se"}
           </span>
         </div>
         <div style="display: flex; gap: 6px;">

@@ -103,14 +103,13 @@
 
                 <!-- EventPlaner -->
                 <section id="eventplaner" class="content-section glass hidden">
-                    <header class="section-header flex-header">
+                    <header class="section-header flex-header" style="margin-bottom: 20px;">
                         <div>
                             <h2>EventPlaner <button class="btn-help"
-                                    onclick="window.showMirek('EventPlaner \u2013 správa koncertů v kalendáři.\nCo umí:\n• Přidání události (název, datum, čas, místo, poznámky) – automaticky vzniká záznam v Google Kalendáři.\n• Úprava události – změny se promítnou i do Kalendáře.\n• Připojení PDF playlistu k události – nahraje soubor na Disk a přidá přílohu do Kalendáře. Možnost prokliknutí na tvorbu playlistu v PlaylistMakeru, předvyplní se návázání na onen koncert.\n• Synchronizace z Kalendáře – načte události, které někdo vytvořil přímo v kalendáři.\nCo neumí:\nZkoušky')"
+                                    onclick="window.showHelp('EventPlaner \u2013 správa koncertů v kalendáři.\nCo umí:\n• Přidání události (název, datum, čas, místo, poznámky) – automaticky vzniká záznam v Google Kalendáři.\n• Úprava události – změny se promítnou i do Kalendáře.\n• Připojení PDF playlistu k události – nahraje soubor na Disk a přidá přílohu do Kalendáře. Možnost prokliknutí na tvorbu playlistu v PlaylistMakeru, předvyplní se návázání na onen koncert.\n• Synchronizace z Kalendáře – načte události, které někdo vytvořil přímo v kalendáři.\nCo neumí:\nZkoušky')"
                                     title="Nápověda">?</button></h2>
-                            <p>Tvé nastávající koncerty. Napojeno na Google Kalendář a Disk.</p>
                         </div>
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <button id="btn-sync-events" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i> Synchronizovat s kalendářem</button>
                             <button id="btn-show-add-event" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Přidat událost</button>
                         </div>
@@ -309,16 +308,14 @@
                     <header class="section-header flex-header" style="margin-bottom: 20px;">
                         <div>
                             <h2>MusicArchivator <button class="btn-help"
-                                    onclick="window.showMirek('MusicArchivator \u2013 archiv tvých not.\nCo umí:\n• Eviduje každou skladbu s číslem, názvem a délkou. Pro přehlednost rozděleno na číslované, plesovky atd\n• Každé skladbě automaticky vzniká složka na Google Disku při jejím přidání.\n• Upload not: vybereš složku ze svého počítače, systém se pokusí každý soubor automaticky přiřadit ke konkrétnímu nástroji (partitura, part, audio) podle názvu souboru. Přiřazení lze před nahráním ručně opravit.\n• V tabulce vidíš, které party chybí \u2013 na základě nastavených nástrojů kapely.\n• Tlačítko Nastavení nástrojů definuje, pro které nástroje systém sleduje kompletnost.')"
+                                    onclick="window.showHelp('MusicArchivator \u2013 archiv tvých not.\nCo umí:\n• Eviduje každou skladbu s číslem, názvem a délkou. Pro přehlednost rozděleno na číslované, plesovky atd\n• Každé skladbě automaticky vzniká složka na Google Disku při jejím přidání.\n• Upload not: vybereš složku ze svého počítače, systém se pokusí každý soubor automaticky přiřadit ke konkrétnímu nástroji (partitura, part, audio) podle názvu souboru. Přiřazení lze před nahráním ručně opravit.\n• V tabulce vidíš, které party chybí \u2013 na základě nastavených nástrojů kapely.\n• Tlačítko Nastavení nástrojů definuje, pro které nástroje systém sleduje kompletnost.')"
                                     title="Nápověda">?</button></h2>
-                            <div class="ma-top-links" style="display: flex; gap: 15px; margin-top: 10px;">
-                                <a href="#" id="ma-link-current-list" class="btn btn-secondary"
-                                    style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                                    <i class="fa-brands fa-google-drive"></i> Aktuální seznam skladeb
-                                </a>
-                            </div>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <a href="#" id="ma-link-current-list" class="btn btn-secondary"
+                                style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="fa-brands fa-google-drive"></i> Aktuální seznam skladeb
+                            </a>
                             <button class="btn btn-secondary" id="ma-btn-config-instruments"><i class="fa-solid fa-sliders"></i> Nastavení nástrojů</button>
                             <button class="btn btn-primary" id="ma-btn-add-song"><i class="fa-solid fa-plus"></i> Přidat skladbu</button>
                         </div>
@@ -448,27 +445,11 @@
                 </section>
                 <!-- PlaylistMaker -->
                 <section id="playlistmaker" class="content-section glass hidden">
-                    <header class="section-header flex-header" style="margin-bottom: 0px;">
-                        <h2>PlaylistMaker <button class="btn-help"
-                                onclick="window.showMirek('PlaylistMaker \u2013 tvorba setlistů a export.\n\nCo umí:\n• Prohlížet celý archiv skladeb, vyhledávát.\n• Přetáhni nebo dvojklikni pro výběr. To vpravo je jen interaktivní náhled, výsledné PDF může vypadat trochu jinak.\n• Možnost přidat více bloků, nakliknutý označen červeně\n• Zkrze poznámky jde přidat další text. Lze zvýraznit červeně.\n• Export do Kalendáře: přímo nahrá PDF jako přílohu ke Google události, nové nahrání automaticky nahrazuje staré.\n• Titulek se předvyplní z názvu vybrané události.')"
-                                title="Nápověda">?</button></h2>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <div
-                                style="display: flex; gap: 10px; align-items: center; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 12px;">
-                                <label for="pm-event-select"
-                                    style="color: var(--accent); font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">Navázat
-                                    na událost:</label>
-                                <select id="pm-event-select"
-                                    style="background: transparent; border: none; outline: none; color: white; cursor: pointer; font-weight: 600; padding: 4px; appearance: none; -webkit-appearance: none; padding-right: 15px;">
-                                    <option value="" style="color: black;">Nepřiřazeno</option>
-                                    <!-- Generováno JS -->
-                                </select>
-                                <i class="fa-solid fa-chevron-down"
-                                    style="color: var(--text-muted); font-size: 0.8rem; pointer-events: none; margin-left: -10px;"></i>
-                            </div>
-                            <button id="pm-btn-load-attached" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; display: none; white-space: nowrap;" title="Načíst a upravit playlist z kalendáře této události">
-                                <i class="fa-solid fa-file-signature"></i> Upravit přiložený
-                            </button>
+                    <header class="section-header flex-header" style="margin-bottom: 15px;">
+                        <div>
+                            <h2>PlaylistMaker <button class="btn-help"
+                                    onclick="window.showHelp('PlaylistMaker \u2013 tvorba setlistů a export.\n\nCo umí:\n• Prohlížet celý archiv skladeb, vyhledávat.\n• Přetáhni nebo dvojklikni pro výběr. Vpravo je interaktivní náhled.\n• Možnost přidat více bloků.\n• Skrz poznámky lze přidat další text.\n• Export do Kalendáře: přímo nahraje PDF jako přílohu ke Google události.\n• Titulek se předvyplní z názvu vybrané události.')"
+                                    title="Nápověda">?</button></h2>
                         </div>
                     </header>
                     <div class="pm-container">
@@ -499,13 +480,26 @@
 
                         <!-- Pravý panel: Bloky setlistu -->
                         <div class="pm-blocks panel">
-                            <div class="pm-header flex-header" style="margin-bottom: 0; justify-content: flex-end;">
-                                <div style="display: flex; gap: 10px;">
+                            <div class="pm-header flex-header" style="margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <div style="display: flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 10px;">
+                                        <i class="fa-regular fa-calendar" style="color: var(--accent); font-size: 0.85rem;"></i>
+                                        <select id="pm-event-select"
+                                            style="background: transparent; border: none; outline: none; color: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 600; max-width: 220px;">
+                                            <option value="" style="background: #181926; color: #fff;">Bez vazby na událost</option>
+                                            <!-- Generováno JS -->
+                                        </select>
+                                    </div>
+                                    <button id="pm-btn-load-attached" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8rem; display: none; white-space: nowrap;" title="Načíst playlist přiložený k této události">
+                                        <i class="fa-solid fa-file-arrow-up"></i> Načíst z akce
+                                    </button>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                                     <button class="btn btn-secondary" id="pm-btn-import-pdf"
                                         title="Načíst playlist z exportovaného PDF"><i class="fa-solid fa-file-import"></i> Načíst PDF</button>
                                     <input type="file" id="pm-pdf-import-input" accept="application/pdf" class="hidden">
                                     <button class="btn btn-secondary" id="pm-export-cal" disabled
-                                        title="Vyberte událost nahoře"><i class="fa-solid fa-calendar-days"></i> Export do Kalendáře</button>
+                                        title="Vyberte událost vlevo"><i class="fa-solid fa-calendar-check"></i> Export do Kalendáře</button>
                                     <button class="btn btn-primary" id="pm-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
                                 </div>
                             </div>

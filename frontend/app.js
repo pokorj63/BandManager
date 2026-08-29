@@ -2065,37 +2065,77 @@ document.addEventListener("DOMContentLoaded", async () => {
     const blocks = document.querySelectorAll(".pm-block");
     const showBlockTitle = blocks.length > 1;
 
-    // Auto-sizing logic
-    let totalItems = 0;
-    blocks.forEach((block) => {
-      const targetList = block.querySelector(".target-list");
-      totalItems += targetList.children.length;
-    });
-    if (showBlockTitle) {
-      totalItems += blocks.length * 2; // block titles spacing approximation
+    // Sizing tiers from largest/spacious to compact
+    const sizingTiers = [
+      { baseFontSize: 20, headerFontSize: 28, blockTitleFontSize: 24, cellMargin: 5.0 },
+      { baseFontSize: 19, headerFontSize: 27, blockTitleFontSize: 23, cellMargin: 4.5 },
+      { baseFontSize: 18, headerFontSize: 26, blockTitleFontSize: 22, cellMargin: 4.0 },
+      { baseFontSize: 17, headerFontSize: 25, blockTitleFontSize: 21, cellMargin: 3.5 },
+      { baseFontSize: 16, headerFontSize: 24, blockTitleFontSize: 20, cellMargin: 3.0 },
+      { baseFontSize: 15, headerFontSize: 22, blockTitleFontSize: 19, cellMargin: 2.5 },
+      { baseFontSize: 14, headerFontSize: 20, blockTitleFontSize: 18, cellMargin: 2.0 },
+      { baseFontSize: 13, headerFontSize: 19, blockTitleFontSize: 16, cellMargin: 1.5 },
+      { baseFontSize: 12, headerFontSize: 18, blockTitleFontSize: 15, cellMargin: 1.0 },
+    ];
+
+    // A4 printable height with margins [35, 30, 35, 30] pt is 841.89 - 60 = ~780 pt
+    const printableHeight = 770;
+
+    // Helper to estimate total vertical height of the document for a given tier
+    function calculateDocHeight(tier) {
+      const headerHeight = tier.headerFontSize * 1.25 + tier.cellMargin * 5;
+      let total = headerHeight;
+
+      blocks.forEach((block) => {
+        const targetList = block.querySelector(".target-list");
+        const itemCount = targetList ? targetList.children.length : 0;
+        if (itemCount === 0) return;
+
+        if (showBlockTitle) {
+          total += tier.blockTitleFontSize * 1.25 + tier.cellMargin * 5;
+        }
+        total += 15; // table top/bottom margin
+        const itemHeight = tier.baseFontSize * 1.25 + tier.cellMargin * 2;
+        total += itemCount * itemHeight;
+      });
+
+      return total;
     }
 
-    let baseFontSize = 20;
-    let headerFontSize = 28;
-    let blockTitleFontSize = 24;
-    let cellMargin = 5;
+    // Determine optimal sizing tier:
+    // 1. Prefer the largest tier that fits entirely on 1 single page (docHeight <= printableHeight).
+    // 2. If it overflows to a 2nd page, ensure the 2nd page has at least 5 items (preventing orphan 1-4 lines).
+    let selectedTier = sizingTiers[sizingTiers.length - 1];
 
-    if (totalItems > 45) {
-      baseFontSize = 14;
-      headerFontSize = 20;
-      blockTitleFontSize = 16;
-      cellMargin = 2;
-    } else if (totalItems > 35) {
-      baseFontSize = 16;
-      headerFontSize = 22;
-      blockTitleFontSize = 18;
-      cellMargin = 3;
-    } else if (totalItems > 25) {
-      baseFontSize = 18;
-      headerFontSize = 26;
-      blockTitleFontSize = 22;
-      cellMargin = 4;
+    let singlePageTier = null;
+    for (const tier of sizingTiers) {
+      const h = calculateDocHeight(tier);
+      if (h <= printableHeight) {
+        singlePageTier = tier;
+        break; // found largest tier that fits on 1 page
+      }
     }
+
+    if (singlePageTier) {
+      selectedTier = singlePageTier;
+    } else {
+      // Look for a tier where the 2nd page has at least 5 items
+      let multiPageTier = null;
+      for (const tier of sizingTiers) {
+        const h = calculateDocHeight(tier);
+        const itemHeight = tier.baseFontSize * 1.25 + tier.cellMargin * 2;
+        const overflowHeight = h - printableHeight;
+        const itemsOnPage2 = Math.ceil(overflowHeight / itemHeight);
+
+        if (itemsOnPage2 >= 5) {
+          multiPageTier = tier;
+          break;
+        }
+      }
+      selectedTier = multiPageTier || sizingTiers[sizingTiers.length - 1];
+    }
+
+    const { baseFontSize, headerFontSize, blockTitleFontSize, cellMargin } = selectedTier;
 
     const content = [
       { text: headerTitle, style: "header", alignment: "center" },
@@ -2181,6 +2221,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     return {
+      pageSize: "A4",
+      pageMargins: [35, 30, 35, 30],
       content: content,
       defaultStyle: {
         fontSize: baseFontSize,
@@ -2299,7 +2341,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           } else {
             const errData = await res.json().catch(() => ({}));
             window.mirekAlert(
-              "Mirek hlásí chybu při nahrávání: " +
+              "Chyba při nahrávání do Kalendáře: " +
                 (errData.detail || res.statusText || "Neznámá chyba"),
             );
           }
@@ -2368,11 +2410,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const currentVal = select.value;
 
         select.innerHTML =
-          '<option value="" style="color: black;">Nepřiřazeno</option>';
+          '<option value="" style="background: #181926; color: #fff;">Bez vazby na událost</option>';
         events.forEach((ev) => {
           const opt = document.createElement("option");
           opt.value = ev.id;
-          opt.style.color = "black";
+          opt.style.background = "#181926";
+          opt.style.color = "#fff";
           const d = new Date(ev.date).toLocaleDateString("cs-CZ");
           opt.textContent = `${d} - ${ev.title}`;
           select.appendChild(opt);

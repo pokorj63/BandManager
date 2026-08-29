@@ -450,58 +450,13 @@ def sync_ma_documents(email: str, drv, db: Session):
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
 
-        # 2. Seznam chybějících partů
-        doc_m = Document()
-        style_m = doc_m.styles["Normal"]
-        font_m = style_m.font
-        font_m.name = "Calibri"
-        font_m.bold = True
-        font_m.size = Pt(11)
-
-        # Simulated Heading
-        h = doc_m.add_paragraph()
-        hr = h.add_run("SEZNAM CHYBĚJÍCÍCH PARTŮ")
-        hr.font.size = Pt(16)
-        doc_m.add_paragraph()  # Spacer
-
-        instruments = (
-            db.query(Instrument)
-            .filter(Instrument.owner_email == email, Instrument.is_tracked == True)
-            .all()
-        )
-
-        for s in songs:
-            missing = []
-            for inst in instruments:
-                if not any(
-                    f.file_type == "part" and f.instrument_name == inst.name
-                    for f in s.files
-                ):
-                    missing.append(inst.name)
-
-            if missing:
-                p = doc_m.add_paragraph()
-                p.add_run(f"{s.number}. {s.title}: ")
-                p.add_run(", ".join(missing))
-
-        buf_m = io.BytesIO()
-        doc_m.save(buf_m)
-        buf_m.seek(0)
-        update_or_create_file(
-            drv,
-            root_id,
-            buf_m,
-            "Seznam chybějících partů.docx",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-
     except Exception as e:
         print(f"MA Sync Doc Error: {e}")
 
 
 @router.post("/documents/generate")
 def generate_ma_documents(request: Request, db: Session = Depends(get_db)):
-    """Vygeneruje (nebo aktualizuje) oba Word dokumenty na Drive a vrátí jejich přímé odkazy."""
+    """Vygeneruje (nebo aktualizuje) Word dokument Aktuální seznam skladeb na Drive a vrátí jeho přímý odkaz."""
     try:
         email = get_user_email(request)
         sid = request.session.get("sid")
@@ -509,7 +464,7 @@ def generate_ma_documents(request: Request, db: Session = Depends(get_db)):
         creds = get_credentials_from_session(token_data["token"])
         drv = drive_service(creds)
 
-        # Vygeneruj / aktualizuj dokumenty
+        # Vygeneruj / aktualizuj dokument
         sync_ma_documents(email, drv, db)
 
         root_id = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
@@ -517,7 +472,6 @@ def generate_ma_documents(request: Request, db: Session = Depends(get_db)):
         from app.google_client import find_file_id
 
         list_id = find_file_id(drv, root_id, "Aktuální seznam skladeb.docx")
-        missing_id = find_file_id(drv, root_id, "Seznam chybějících partů.docx")
 
         def get_link(fid):
             if not fid:
@@ -527,7 +481,6 @@ def generate_ma_documents(request: Request, db: Session = Depends(get_db)):
 
         return {
             "current_list": get_link(list_id),
-            "missing_parts": get_link(missing_id),
         }
     except Exception as e:
         print(f"MA generate docs error: {e}")

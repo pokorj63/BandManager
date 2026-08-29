@@ -3,7 +3,7 @@ from __future__ import annotations
 import calendar as calmod
 import os
 import json
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, time
 import io
 import re
 import unicodedata
@@ -29,12 +29,39 @@ from app.google_client import (
     calendar_service,
     drive_service,
     ensure_folder,
-    ensure_event_subfolders,
     upload_file_to_drive,
 )
 
 TZ = "Europe/Prague"
 router = APIRouter(prefix="/events", tags=["events"])
+
+
+def build_calendar_times(event_date: date, time_start: time | None, time_end: time | None) -> tuple[dict, dict]:
+    """
+    Returns (start_dict, end_dict) formatted for Google Calendar API.
+    Handles:
+    - All-day events (time_start is None)
+    - Timed events without end time (defaults to +2 hours)
+    - Timed events ending past midnight (moves end date to next day)
+    """
+    if time_start is None:
+        return (
+            {"date": event_date.isoformat()},
+            {"date": (event_date + timedelta(days=1)).isoformat()},
+        )
+
+    start_dt = datetime.combine(event_date, time_start)
+    if time_end is None:
+        end_dt = start_dt + timedelta(hours=2)
+    else:
+        if time_end <= time_start:
+            end_dt = datetime.combine(event_date + timedelta(days=1), time_end)
+        else:
+            end_dt = datetime.combine(event_date, time_end)
+
+    start_dict = {"dateTime": start_dt.isoformat(), "timeZone": TZ}
+    end_dict = {"dateTime": end_dt.isoformat(), "timeZone": TZ}
+    return start_dict, end_dict
 
 
 def require_token(request: Request) -> dict:
@@ -116,50 +143,18 @@ def create_event(payload: EventCreate, request: Request, db: Session = Depends(g
             detail="Missing BAND_CALENDAR_ID or BAND_DRIVE_ROOT_FOLDER_ID in .env",
         )
 
-    if ev.time_start is None:
-        body = {
-            "summary": ev.title,
-            "start": {"date": ev.date.isoformat()},
-            "end": {"date": (ev.date + timedelta(days=1)).isoformat()},
-            "description": ev.public_description or "",
-            "location": ev.location or "",
-        }
-    else:
-        start_dt = (
-            f"{ev.date.isoformat()}T{ev.time_start.isoformat(timespec='seconds')}"
-        )
-        end_time = ev.time_end or ev.time_start
-        end_dt = f"{ev.date.isoformat()}T{end_time.isoformat(timespec='seconds')}"
-
-        body = {
-            "summary": ev.title,
-            "start": {"dateTime": start_dt, "timeZone": TZ},
-            "end": {"dateTime": end_dt, "timeZone": TZ},
-            "description": ev.public_description or "",
-            "location": ev.location or "",
-        }
+    start_info, end_info = build_calendar_times(ev.date, ev.time_start, ev.time_end)
+    body = {
+        "summary": ev.title,
+        "start": start_info,
+        "end": end_info,
+        "description": ev.public_description or "",
+        "location": ev.location or "",
+    }
 
     created = cal.events().insert(calendarId=calendar_id, body=body).execute()
     ev.calendar_event_id = created["id"]
-
-    event_folder_name = f"{ev.date.isoformat()} {ev.title}"
-    koncerty_folder_id = ensure_folder(drv, drive_root, "Koncerty")
-    event_folder = (
-        drv.files()
-        .create(
-            body={
-                "name": event_folder_name,
-                "mimeType": "application/vnd.google-apps.folder",
-                "parents": [koncerty_folder_id],
-            },
-            fields="id",
-        )
-        .execute()
-    )
-    ev.drive_folder_id = event_folder["id"]
-
-    # Create subfolders Fotky, Videa, Audio directly in the event folder
-    ensure_event_subfolders(drv, ev.drive_folder_id)
+    ev.drive_folder_id = None
 
     db.add(ev)
     db.commit()
@@ -188,26 +183,14 @@ def update_event(
     calendar_id = os.getenv("BAND_CALENDAR_ID")
 
     if calendar_id and ev.calendar_event_id:
-        if ev.time_start is None:
-            body = {
-                "summary": ev.title,
-                "start": {"date": ev.date.isoformat()},
-                "end": {"date": (ev.date + timedelta(days=1)).isoformat()},
-                "description": ev.public_description or "",
-                "location": ev.location or "",
-            }
-        else:
-            body = {
-                "summary": ev.title,
-                "start": {
-                    "dateTime": f"{ev.date.isoformat()}T{ev.time_start.isoformat()}"
-                },
-                "end": {
-                    "dateTime": f"{ev.date.isoformat()}T{(ev.time_end or ev.time_start).isoformat()}"
-                },
-                "description": ev.public_description or "",
-                "location": ev.location or "",
-            }
+        start_info, end_info = build_calendar_times(ev.date, ev.time_start, ev.time_end)
+        body = {
+            "summary": ev.title,
+            "start": start_info,
+            "end": end_info,
+            "description": ev.public_description or "",
+            "location": ev.location or "",
+        }
 
         cal.events().patch(
             calendarId=calendar_id, eventId=ev.calendar_event_id, body=body
@@ -255,12 +238,32 @@ def attach_playlist_to_calendar(
                 status_code=404, detail=f"Událost s ID {event_id} nebyla nalezena."
             )
 
+        # Načteme bytes souboru, abychom z něj mohli případně naparsovat skladby i ho nahrát na Disk
+        pdf_bytes = file.file.read()
+        file.file.seek(0)
+
         if playlist_songs:
             try:
                 ev.playlist_songs = json.loads(playlist_songs)
                 db.commit()
             except Exception as e:
                 print(f"Playlist JSON parse error: {e}")
+        else:
+            # Fallback: Pokud uživatel nahrál PDF přímo z PC v detailu události,
+            # automaticky naparsujeme skladby, aby fungovaly záskoky i statistiky
+            try:
+                parsed_structure = parse_pdf_to_playlist_structure(pdf_bytes, db)
+                extracted_ids = [
+                    item["id"]
+                    for blk in parsed_structure.get("blocks", [])
+                    for item in blk.get("items", [])
+                    if item.get("type") == "song" and "id" in item
+                ]
+                if extracted_ids:
+                    ev.playlist_songs = extracted_ids
+                    db.commit()
+            except Exception as parse_err:
+                print(f"Auto-parsing PDF for playlist_songs error: {parse_err}")
 
         # Získání credentials a služeb
         token = require_token(request)
@@ -276,32 +279,18 @@ def attach_playlist_to_calendar(
                 detail="V nastavení (.env) chybí BAND_DRIVE_ROOT_FOLDER_ID.",
             )
 
-        # 1. Kontrola / vytvoření složky události
-        if not ev.drive_folder_id:
-            folder_name = f"{ev.date} {ev.title}"
-            koncerty_folder_id = ensure_folder(drv, drive_root, "Koncerty")
-            folder_metadata = {
-                "name": folder_name,
-                "mimeType": "application/vnd.google-apps.folder",
-                "parents": [koncerty_folder_id],
-            }
-            folder = drv.files().create(body=folder_metadata, fields="id").execute()
-            ev.drive_folder_id = folder["id"]
-            db.commit()
-            db.refresh(ev)
-
-        # Ujistit se, že sub-složky existují
-        ensure_event_subfolders(drv, ev.drive_folder_id)
+        # 1. Získání / zajištění složky Playlisty na Google Disku
+        playlists_folder_id = ensure_folder(drv, drive_root, "Playlisty")
 
         # Resetovat file pointer pro jistotu
         file.file.seek(0)
 
-        # 2. Nahrání na Disk (přímo do složky eventu dle nového požadavku)
+        # 2. Nahrání na Disk do složky Playlisty
         created = upload_file_to_drive(
             drv,
-            ev.drive_folder_id,
+            playlists_folder_id,
             file.file,
-            file.filename or "Playlist.pdf",
+            file.filename or f"Playlist - {ev.title}.pdf",
             "application/pdf",
         )
 
@@ -324,6 +313,7 @@ def attach_playlist_to_calendar(
         db.commit()
 
         # 3. Úklid starých (Disk i DB)
+        old_drive_ids = set()
         try:
             old_items = (
                 db.query(MediaItem)
@@ -336,6 +326,7 @@ def attach_playlist_to_calendar(
                 .all()
             )
             for old in old_items:
+                old_drive_ids.add(old.drive_file_id)
                 try:
                     drv.files().delete(fileId=old.drive_file_id).execute()
                 except:
@@ -355,20 +346,24 @@ def attach_playlist_to_calendar(
                 )
                 attachments = cal_ev.get("attachments", [])
 
-                # Smazat staré playlisty z příloh
-                attachments = [
-                    a
-                    for a in attachments
-                    if not (
-                        a.get("title", "").startswith("Playlist")
-                        and "pdf" in a.get("mimeType", "").lower()
-                    )
-                ]
+                # Smazat staré playlisty z příloh (podle starých ID i obecně PDF playlistů)
+                new_attachments = []
+                for a in attachments:
+                    a_file_id = a.get("fileId")
+                    a_title = a.get("title", "")
+                    a_mime = a.get("mimeType", "").lower()
+
+                    if a_file_id and a_file_id in old_drive_ids:
+                        continue
+                    if "pdf" in a_mime and (a_title.startswith("Playlist") or a_file_id == created["id"]):
+                        continue
+                    new_attachments.append(a)
 
                 file_url = created.get("webViewLink") or created.get("webContentLink")
                 if file_url:
-                    attachments.append(
+                    new_attachments.append(
                         {
+                            "fileId": created["id"],
                             "fileUrl": file_url,
                             "mimeType": "application/pdf",
                             "title": file.filename or "Playlist.pdf",
@@ -377,7 +372,7 @@ def attach_playlist_to_calendar(
                     cal.events().patch(
                         calendarId=calendar_id,
                         eventId=ev.calendar_event_id,
-                        body={"attachments": attachments},
+                        body={"attachments": new_attachments},
                         supportsAttachments=True,
                     ).execute()
             except Exception as cal_err:
@@ -385,6 +380,8 @@ def attach_playlist_to_calendar(
 
         return {"status": "ok", "drive_id": created["id"]}
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
 
@@ -395,131 +392,7 @@ def attach_playlist_to_calendar(
         )
 
 
-@router.post("/{event_id}/media", response_model=MediaItemOut)
-def upload_media(
-    event_id: int,
-    request: Request,
-    file: UploadFile = File(...),
-    category: str | None = Form(None),  # "photos" | "videos" | "other"
-    db: Session = Depends(get_db),
-):
-    ev = db.query(Event).filter(Event.id == event_id).first()
-    if not ev:
-        raise HTTPException(status_code=404, detail="Event not found")
-    token = require_token(request)
-    creds = get_credentials_from_session(token)
-    drv = drive_service(creds)
 
-    if not ev.drive_folder_id:
-        drive_root = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
-        if not drive_root:
-            raise HTTPException(status_code=500, detail="Missing drive root.")
-
-        folder_name = f"{ev.date.isoformat()} {ev.title}"
-        koncerty_folder_id = ensure_folder(drv, drive_root, "Koncerty")
-        folder = (
-            drv.files()
-            .create(
-                body={
-                    "name": folder_name,
-                    "mimeType": "application/vnd.google-apps.folder",
-                    "parents": [koncerty_folder_id],
-                },
-                fields="id",
-            )
-            .execute()
-        )
-        ev.drive_folder_id = folder["id"]
-
-        # Create subfolders Fotky, Videa, Audio directly in the event folder
-        ensure_event_subfolders(drv, ev.drive_folder_id)
-        db.commit()
-        db.refresh(ev)
-
-    folders = ensure_event_subfolders(drv, ev.drive_folder_id)
-
-    mime = file.content_type or "application/octet-stream"
-    filename = file.filename or "upload.bin"
-
-    # auto routing: video/* -> videos, image/* -> photos, audio/* -> audio
-    target = category
-    if not target:
-        if mime.startswith("image/"):
-            target = "photos"
-        elif mime.startswith("video/"):
-            target = "videos"
-        elif mime.startswith("audio/"):
-            target = "audio"
-        else:
-            target = "other"
-
-    folder_id = (
-        folders["photos"]
-        if target == "photos"
-        else (
-            folders["videos"]
-            if target == "videos"
-            else folders["audio"] if target == "audio" else ev.drive_folder_id
-        )
-    )
-
-    created = upload_file_to_drive(drv, folder_id, file.file, filename, mime)
-
-    # size v Google response bývá string, tak to ošetříme
-    size_raw = created.get("size")
-    size_bytes = int(size_raw) if size_raw is not None else None
-
-    item = MediaItem(
-        event_id=ev.id,
-        drive_file_id=created["id"],
-        name=created.get("name") or filename,
-        mime_type=created.get("mimeType") or mime,
-        size_bytes=size_bytes,
-        category=target,
-    )
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
-
-
-@router.get("/{event_id}/media", response_model=list[MediaItemOut])
-def list_media(event_id: int, db: Session = Depends(get_db)):
-    ev = db.query(Event).filter(Event.id == event_id).first()
-    if not ev:
-        raise HTTPException(status_code=404, detail="Event not found")
-    return (
-        db.query(MediaItem)
-        .filter(MediaItem.event_id == event_id)
-        .order_by(MediaItem.created_at.asc())
-        .all()
-    )
-
-
-@router.delete("/{event_id}/media/{media_id}")
-def delete_media(
-    event_id: int, media_id: int, request: Request, db: Session = Depends(get_db)
-):
-    item = (
-        db.query(MediaItem)
-        .filter(MediaItem.id == media_id, MediaItem.event_id == event_id)
-        .first()
-    )
-    if not item:
-        raise HTTPException(status_code=404, detail="Media not found")
-
-    # best-effort delete in Drive
-    token = require_token(request)
-    creds = get_credentials_from_session(token)
-    drv = drive_service(creds)
-    try:
-        drv.files().delete(fileId=item.drive_file_id).execute()
-    except Exception:
-        pass
-
-    db.delete(item)
-    db.commit()
-    return {"deleted": True, "id": media_id}
 
 
 # --- Záskoky (EventSub) ---
@@ -595,16 +468,48 @@ def generate_sub_folder(
     if not sub:
         raise HTTPException(status_code=404, detail="Záskok nenalezen.")
 
-    if not ev.playlist_songs:
-        raise HTTPException(
-            status_code=400,
-            detail="Nejprve vytvořte a uložte Playlist v PlaylistMakeru (kliknutím na 'Export PDF/Kalendář').",
-        )
-
     token = require_token(request)
     creds = get_credentials_from_session(token)
     drv = drive_service(creds)
     drive_root = os.getenv("BAND_DRIVE_ROOT_FOLDER_ID")
+
+    # Pokud ev.playlist_songs chybí, zkusíme automaticky vytěžit skladby z připojeného playlistu
+    if not ev.playlist_songs:
+        playlist_item = (
+            db.query(MediaItem)
+            .filter(
+                MediaItem.event_id == event_id,
+                (MediaItem.category == "playlist") | (MediaItem.name.like("Playlist%")),
+            )
+            .order_by(MediaItem.created_at.desc())
+            .first()
+        )
+        if playlist_item:
+            try:
+                drive_req = drv.files().get_media(fileId=playlist_item.drive_file_id)
+                fh = io.BytesIO()
+                downloader = MediaIoBaseDownload(fh, drive_req)
+                done = False
+                while not done:
+                    status, done = downloader.next_chunk()
+                parsed = parse_pdf_to_playlist_structure(fh.getvalue(), db)
+                extracted_ids = [
+                    item["id"]
+                    for blk in parsed.get("blocks", [])
+                    for item in blk.get("items", [])
+                    if item.get("type") == "song" and "id" in item
+                ]
+                if extracted_ids:
+                    ev.playlist_songs = extracted_ids
+                    db.commit()
+            except Exception as parse_e:
+                print(f"Fallback parse PDF failed in generate_sub_folder: {parse_e}")
+
+    if not ev.playlist_songs:
+        raise HTTPException(
+            status_code=400,
+            detail="K této události není přiřazen žádný playlist se skladbami. Vytvořte playlist v PlaylistMakeru nebo nahrajte PDF playlist.",
+        )
 
     # Najít/vytvořit root pro Záskoky
     zaskoky_root_id = ensure_folder(drv, drive_root, "Noty pro záskoky")
@@ -622,21 +527,37 @@ def generate_sub_folder(
         except:
             pass
 
+    def normalize_role(s: str | None) -> str:
+        if not s:
+            return ""
+        s = unicodedata.normalize("NFKD", s).encode("ASCII", "ignore").decode("ASCII")
+        return s.strip().lower()
+
+    sub_role_norm = normalize_role(sub.role)
+
     # Postupně v pořadí z playlistu hledat a kopírovat příslušný part
     copied = 0
     for song_id in ev.playlist_songs:
         song_info = db.query(Song).filter(Song.id == song_id).first()
-        part_file = (
+        if not song_info:
+            continue
+
+        # Vyhledáme part buď přesnou shodou nebo normalizovanou
+        candidate_files = (
             db.query(SongFile)
             .filter(
                 SongFile.song_id == song_id,
-                SongFile.instrument_name == sub.role,
                 SongFile.file_type == "part",
             )
-            .first()
+            .all()
         )
+        part_file = None
+        for sf in candidate_files:
+            if sf.instrument_name and normalize_role(sf.instrument_name) == sub_role_norm:
+                part_file = sf
+                break
 
-        if part_file and song_info:
+        if part_file:
             ext = os.path.splitext(part_file.name)[1]
             new_name = f"{song_info.number} - {song_info.title}{ext}"
             try:

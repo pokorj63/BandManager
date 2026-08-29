@@ -54,35 +54,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   function showLogin() {
     dashboardView.classList.add("hidden");
     loginView.classList.remove("hidden");
-    showWelcomeModal();
-  }
-
-  // --- Uvítací modal ---
-  function showWelcomeModal() {
-    const overlay = document.getElementById("welcome-modal-overlay");
-    const modal = document.getElementById("welcome-modal");
-    if (!overlay) return;
-    // Zobraz overlay, pak spusť animaci
-    overlay.style.display = "flex";
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        overlay.style.opacity = "1";
-        modal.style.transform = "scale(1)";
-      });
-    });
-  }
-
-  const welcomeCloseBtn = document.getElementById("welcome-modal-close");
-  if (welcomeCloseBtn) {
-    welcomeCloseBtn.addEventListener("click", () => {
-      const overlay = document.getElementById("welcome-modal-overlay");
-      const modal = document.getElementById("welcome-modal");
-      overlay.style.opacity = "0";
-      modal.style.transform = "scale(0.92)";
-      setTimeout(() => {
-        overlay.style.display = "none";
-      }, 400);
-    });
   }
 
   // --- 2. Navigace v postranním panelu ---
@@ -316,6 +287,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     currentEventId = ev.id;
 
+    // Reset file input values
+    const pdfIn = document.getElementById("upload-pdf-input");
+    if (pdfIn) pdfIn.value = "";
+
     // Zobrazit detail
     detailView.classList.remove("hidden");
     document
@@ -375,19 +350,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     const playlist = playlists[0];
     if (playlist) {
       detailPlaylistInfo.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
-                    <span style="font-size: 1.5rem;">📄</span>
-                    <div style="text-align: left;">
-                        <strong style="display: block; color: var(--accent);">Playlist připojen</strong>
-                        <a href="https://drive.google.com/file/d/${playlist.drive_file_id}/view" target="_blank" style="color: #fff; text-decoration: underline; font-size: 0.9rem;">Otevřít z Google Disku</a>
-                    </div>
-                </div>
-            `;
-      // Note: Currently we store drive_file_id, but the backend doesn't provide webViewLink in the schema yet.
-      // In a real env, we'd need that link. For now I'll use the ID as placeholder or fix schema.
+        <div style="display: flex; align-items: center; gap: 14px; justify-content: center; padding: 4px 0;">
+          <i class="fa-solid fa-file-pdf" style="font-size: 2.2rem; color: #ef4444;"></i>
+          <div style="text-align: left;">
+            <div style="font-weight: 700; color: #fff; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
+              Playlist připojen <span style="background: rgba(34, 197, 94, 0.2); color: #4ade80; font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: bold;">PDF</span>
+            </div>
+            <a href="https://drive.google.com/file/d/${playlist.drive_file_id}/view" target="_blank" style="color: #60a5fa; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;">
+              <i class="fa-brands fa-google-drive"></i> Otevřít na Google Disku
+            </a>
+          </div>
+        </div>
+      `;
     } else {
-      detailPlaylistInfo.textContent =
-        "Zatím nebyl nahrán playlist pro tento koncert.";
+      detailPlaylistInfo.innerHTML = `
+        <div style="color: var(--text-muted); font-size: 0.9rem; padding: 6px 0; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <i class="fa-regular fa-file-lines" style="font-size: 1.1rem;"></i> Zatím nebyl nahrán playlist pro tento koncert.
+        </div>
+      `;
     }
   }
 
@@ -395,24 +375,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     zaskokyList.innerHTML = "";
     if (subs.length === 0) {
       zaskokyList.innerHTML =
-        "<p style='color: var(--text-muted)'>Žádné sháňky po záskocích.</p>";
+        "<p style='color: var(--text-muted); margin: 6px 0; font-size: 0.85rem; text-align: center;'>Žádné sháňky po záskocích.</p>";
       return;
     }
     subs.forEach((sub) => {
       const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.alignItems = "center";
+      li.style.background = "rgba(0, 0, 0, 0.25)";
+      li.style.border = "1px solid var(--glass-border)";
+      li.style.padding = "8px 12px";
+      li.style.borderRadius = "10px";
       li.innerHTML = `
-                <div>
-                    <strong>${sub.role}</strong> - 
-                    <span style="color: ${sub.is_secured ? "#22c55e" : "#ef4444"}">
-                        ${sub.is_secured ? "Zařízeno" : "Shání se"}
-                    </span>
-                </div>
-                <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-primary" style="padding: 3px 10px; font-size: 0.8rem;" onclick="generateZaskokFolder(${sub.id}, this)" title="Vytvořit složku not s party"><i class="fa-solid fa-folder-plus"></i></button>
-                    <button class="btn btn-ghost" style="padding: 3px 10px; font-size: 0.8rem;" onclick="toggleZaskok(${sub.id}, ${!sub.is_secured})" title="Přepnout stav"><i class="fa-solid fa-rotate"></i></button>
-                    <button class="btn btn-danger" style="padding: 3px 10px; font-size: 0.8rem;" onclick="deleteZaskok(${sub.id})" title="Smazat"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-            `;
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <strong style="color: #fff; font-size: 0.95rem;">${sub.role}</strong>
+          <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: ${sub.is_secured ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"}; color: ${sub.is_secured ? "#4ade80" : "#f87171"}; border: 1px solid ${sub.is_secured ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"};">
+            ${sub.is_secured ? "✓ Zařízeno" : "⏳ Shání se"}
+          </span>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="generateZaskokFolder(${sub.id}, this)" title="Vygenerovat složku not s party pro tento záskok"><i class="fa-solid fa-folder-plus"></i></button>
+          <button class="btn btn-ghost" style="padding: 4px 10px; font-size: 0.8rem;" onclick="toggleZaskok(${sub.id}, ${!sub.is_secured})" title="Přepnout stav (Zařízeno / Shání se)"><i class="fa-solid fa-rotate"></i></button>
+          <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteZaskok(${sub.id})" title="Smazat záznam"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      `;
       zaskokyList.appendChild(li);
     });
   }
@@ -470,14 +457,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           `Složka pro záskok vytvořena! Zkopírováno ${data.copied_count} not.`,
         );
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         window.mirekAlert(
-          "Chyba: " + (err.detail || "Nepovedlo se vytvořit složku."),
+          "Chyba: " + (err.detail || res.statusText || "Nepovedlo se vytvořit složku."),
         );
       }
     } catch (e) {
       console.error(e);
-      window.mirekAlert("Kritická chyba spojení.");
+      window.mirekAlert("Kritická chyba spojení při generování složky záskoku.");
     } finally {
       btn.innerHTML = origHtml;
       btn.disabled = false;
@@ -507,53 +494,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   // File Upload Handlers
-  const uploadMediaBtn = document.getElementById("btn-trigger-media-upload");
-  const uploadMediaInput = document.getElementById("upload-media-input");
   const uploadPdfInput = document.getElementById("upload-pdf-input");
-
-  uploadMediaBtn.onclick = () => uploadMediaInput.click();
-
-  uploadMediaInput.onchange = async (e) => {
-    if (!currentEventId) return;
-    const files = e.target.files;
-    if (!files.length) return;
-
-    uploadMediaBtn.textContent = "Nahrávám...";
-    for (const file of files) {
-      const formData = new FormData();
-      formData.append("file", file);
-      let cat = "other";
-      if (file.type.startsWith("image/")) cat = "photos";
-      if (file.type.startsWith("video/")) cat = "videos";
-      if (file.type.startsWith("audio/")) cat = "audio";
-      formData.append("category", cat);
-
-      try {
-        const res = await fetch(`/events/${currentEventId}/media`, {
-          method: "POST",
-          body: formData,
-        });
-        if (!res.ok)
-          window.mirekAlert(`Chyba při nahrávání souboru: ${file.name}`);
-      } catch (err) {
-        console.error(err);
-        window.mirekAlert(`Nelze nahrát ${file.name}`);
-      }
-    }
-    uploadMediaBtn.textContent = "Nahrát Fotky/Videa/Audio";
-    window.mirekAlert("Soubory úspěšně nahrány!");
-    e.target.value = "";
-  };
 
   uploadPdfInput.onchange = async (e) => {
     if (!currentEventId) return;
     const file = e.target.files[0];
     if (!file) return;
 
-    // simple indicator for PDF
+    const labelText = document.getElementById("label-upload-pdf-text");
+    const origText = labelText ? labelText.textContent : "Nahrát z PC (PDF)";
+    if (labelText) labelText.textContent = "Nahrávám...";
+
     const formData = new FormData();
     formData.append("file", file);
-    // category not needed for playlist_attach but we can just leave it
 
     try {
       const res = await fetch(`/events/${currentEventId}/playlist_attach`, {
@@ -569,13 +522,21 @@ document.addEventListener("DOMContentLoaded", async () => {
           r.json(),
         );
         openEventDetailModal(fresh);
+        loadEvents();
       } else {
-        window.mirekAlert("Nepovedlo se nahrát Playlist.");
+        const errData = await res.json().catch(() => ({}));
+        window.mirekAlert(
+          "Chyba při nahrávání playlistu: " +
+            (errData.detail || res.statusText || "Nepovedlo se nahrát Playlist."),
+        );
       }
     } catch (err) {
       console.error(err);
+      window.mirekAlert("Kritická chyba spojení při nahrávání playlistu.");
+    } finally {
+      if (labelText) labelText.textContent = origText;
+      e.target.value = "";
     }
-    e.target.value = "";
   };
 
   const btnSyncEvents = document.getElementById("btn-sync-events");
@@ -685,22 +646,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // --- 4. Zobrazení kontextové nápovědy / Alertů / Potvrzení (Mirek) ---
+  // --- 4. Zobrazení kontextové nápovědy / Alertů / Potvrzení ---
   const helperContainer = document.getElementById("helper-character");
   const helperText = document.getElementById("helper-text");
   const btnHelperClose = document.getElementById("helper-close");
   const btnHelperCancel = document.getElementById("helper-cancel");
 
-  window.showMirek = function (text) {
+  window.showHelp = function (text) {
     return window.mirekAlert(text);
   };
+  window.showMirek = window.showHelp;
 
   window.mirekAlert = function (msg) {
     return new Promise((resolve) => {
       helperText.textContent = msg;
       helperContainer.classList.remove("hidden");
       btnHelperCancel.style.display = "none";
-      btnHelperClose.textContent = "Ok";
+      btnHelperClose.textContent = "Rozumím";
 
       btnHelperClose.onclick = () => {
         helperContainer.classList.add("hidden");
@@ -822,12 +784,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       e.preventDefault();
       handleDocButton("ma-link-current-list", "current_list");
     });
-  document
-    .getElementById("ma-link-missing-parts")
-    ?.addEventListener("click", (e) => {
-      e.preventDefault();
-      handleDocButton("ma-link-missing-parts", "missing_parts");
-    });
 
   // Databáze skladeb se nyní načítá dynamicky ze serveru přes loadSongs()
 
@@ -942,15 +898,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <td style="font-weight: 600;">${song.singer}</td>
                 <td>${missingHtml}</td>
                 <td>
-                    <a href="https://drive.google.com/drive/folders/${song.drive_folder_id}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none;">
-                        <i class="fa-brands fa-google-drive"></i> Složka
+                    <a href="https://drive.google.com/drive/folders/${song.drive_folder_id}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none; white-space: nowrap;" title="Otevřít složku skladby na Google Disku">
+                        <i class="fa-brands fa-google-drive"></i> Otevřít Disk
                     </a>
                 </td>
                 <td>
-                    <div style="display: flex; gap: 5px;">
-                        <button class="btn btn-ghost" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.openEditSongForm(${JSON.stringify(song).replace(/"/g, "&quot;")})" title="Upravit data"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.triggerFileUpload(${song.id})" title="Nahrát soubory"><i class="fa-solid fa-file-arrow-up"></i> Soubory</button>
-                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.triggerFolderUpload(${song.id})" title="Nahrát celou složku"><i class="fa-solid fa-folder-open"></i> Složka</button>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; white-space: nowrap;" onclick="window.openEditSongForm(${JSON.stringify(song).replace(/"/g, "&quot;")})" title="Upravit podrobnosti o skladbě"><i class="fa-solid fa-pen"></i> Upravit</button>
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem; white-space: nowrap;" onclick="window.triggerUpload(${song.id})" title="Nahrát noty (soubory nebo složku)"><i class="fa-solid fa-cloud-arrow-up"></i> Nahrát noty</button>
                     </div>
                 </td>
             `;
@@ -1224,19 +1179,57 @@ document.addEventListener("DOMContentLoaded", async () => {
   const maBtnCancelUpload = document.getElementById("ma-btn-cancel-upload");
   const maUploadModalClose = document.getElementById("ma-upload-modal-close");
 
+  window.triggerUpload = function (songId) {
+    currentSongIdForUpload = songId;
+    const song = maSongsCache.find((s) => s.id === songId);
+    currentSongTitleForUpload = song ? song.title : "";
+    const songTitleEl = document.getElementById("ma-upload-song-title");
+    if (songTitleEl) songTitleEl.textContent = currentSongTitleForUpload ? `– ${currentSongTitleForUpload}` : "";
+    maFileInput.click();
+  };
+
+  window.triggerFileUpload = window.triggerUpload;
+
   window.triggerFolderUpload = function (songId) {
     currentSongIdForUpload = songId;
     const song = maSongsCache.find((s) => s.id === songId);
     currentSongTitleForUpload = song ? song.title : "";
+    const songTitleEl = document.getElementById("ma-upload-song-title");
+    if (songTitleEl) songTitleEl.textContent = currentSongTitleForUpload ? `– ${currentSongTitleForUpload}` : "";
     maFolderInput.click();
   };
 
-  window.triggerFileUpload = function (songId) {
-    currentSongIdForUpload = songId;
-    const song = maSongsCache.find((s) => s.id === songId);
-    currentSongTitleForUpload = song ? song.title : "";
-    maFileInput.click();
-  };
+  async function getAllFileEntries(dataTransferItemList) {
+    const fileEntries = [];
+    const queue = [];
+    for (let i = 0; i < dataTransferItemList.length; i++) {
+      const item = dataTransferItemList[i];
+      if (item.webkitGetAsEntry) {
+        const entry = item.webkitGetAsEntry();
+        if (entry) queue.push(entry);
+      } else if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) fileEntries.push(file);
+      }
+    }
+
+    while (queue.length > 0) {
+      const entry = queue.shift();
+      if (entry.isFile) {
+        const file = await new Promise((resolve) => entry.file(resolve));
+        if (file) fileEntries.push(file);
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        const entries = await new Promise((resolve) => {
+          dirReader.readEntries(resolve, () => resolve([]));
+        });
+        for (const child of entries) {
+          queue.push(child);
+        }
+      }
+    }
+    return fileEntries;
+  }
 
   function processSelectedFiles(files) {
     if (files.length === 0) return;
@@ -1652,6 +1645,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     maUploadPanel.classList.add("hidden");
   };
 
+  if (maUploadPanel) {
+    maUploadPanel.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      maUploadPanel.style.border = "2px dashed var(--accent)";
+    });
+    maUploadPanel.addEventListener("dragleave", () => {
+      maUploadPanel.style.border = "";
+    });
+    maUploadPanel.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      maUploadPanel.style.border = "";
+      if (e.dataTransfer && e.dataTransfer.items) {
+        const files = await getAllFileEntries(e.dataTransfer.items);
+        if (files.length > 0) {
+          processSelectedFiles(files);
+        }
+      } else if (e.dataTransfer && e.dataTransfer.files) {
+        processSelectedFiles(Array.from(e.dataTransfer.files));
+      }
+    });
+  }
+
   function parseDuration(str) {
     if (!str) return 0;
     const pts = str.split(":");
@@ -1771,64 +1786,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Statistiky písní v PM
-  const btnStats = document.getElementById("pm-btn-stats");
-  const statsModalOverlay = document.getElementById("stats-modal-overlay");
-  const statsModalClose = document.getElementById("stats-modal-close");
-  const statsContent = document.getElementById("stats-content");
 
-  if (btnStats) {
-    btnStats.addEventListener("click", async () => {
-      statsContent.innerHTML = "Načítám statistiky...";
-      statsModalOverlay.style.display = "flex";
-      setTimeout(() => (statsModalOverlay.style.opacity = "1"), 10);
-
-      try {
-        const res = await fetch("/events/stats/songs");
-        if (!res.ok) throw new Error("Chyba při načítání statistik");
-        const data = await res.json();
-
-        if (data.length === 0) {
-          statsContent.innerHTML =
-            "Zatím nebyly odehrány žádné skladby na událostech.";
-          return;
-        }
-
-        let html = `<table style="width:100%; text-align: left; border-collapse: collapse;">
-                            <thead>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
-                                    <th style="padding: 8px;">Píseň</th>
-                                    <th style="padding: 8px;">Zpěv</th>
-                                    <th style="padding: 8px;">Odehráno</th>
-                                    <th style="padding: 8px;">Naposledy</th>
-                                </tr>
-                            </thead>
-                            <tbody>`;
-        data.forEach((s) => {
-          const lastPlayedDate = s.last_played
-            ? new Date(s.last_played).toLocaleDateString("cs-CZ")
-            : "Nikdy";
-          html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <td style="padding: 8px; font-weight: bold;">${s.title}</td>
-                            <td style="padding: 8px; font-size: 0.85em; opacity: 0.8;">${s.singer || ""}</td>
-                            <td style="padding: 8px; color: var(--accent); font-weight: 800; text-align: center;">${s.count}x</td>
-                            <td style="padding: 8px; font-size: 0.85em;">${lastPlayedDate}</td>
-                           </tr>`;
-        });
-        html += `</tbody></table>`;
-        statsContent.innerHTML = html;
-      } catch (err) {
-        statsContent.innerHTML = `<span style="color:red">${err.message}</span>`;
-      }
-    });
-  }
-
-  if (statsModalClose) {
-    statsModalClose.addEventListener("click", () => {
-      statsModalOverlay.style.opacity = "0";
-      setTimeout(() => (statsModalOverlay.style.display = "none"), 400);
-    });
-  }
 
   // Aktivace bloku na klik
   pmBlocksContainer.addEventListener("click", (e) => {

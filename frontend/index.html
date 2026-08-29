@@ -184,76 +184,121 @@
 
                         <!-- Inline Detail události (skrytý) -->
                         <div id="event-detail-view" class="form-container glass hidden"
-                            style="position: relative; padding-bottom: 70px;">
-                            <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
-                                <button id="close-detail" class="btn btn-ghost"><i class="fa-solid fa-xmark"></i> Zavřít</button>
-                            </div>
-                            <div class="detail-grid">
-                                <!-- Levej sloupec -->
-                                <div class="detail-left" style="display: flex; flex-direction: column;">
-                                    <h2 id="detail-title" style="font-size: 3rem; margin-bottom: 5px; line-height: 1;">
-                                        Název</h2>
-                                    <p id="detail-date" style="font-size: 1.2rem; margin-bottom: 2px;">datum</p>
-                                    <p id="detail-location" style="font-size: 1.2rem; margin-bottom: 15px;">místo</p>
-                                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 30px;">
-                                        <button id="btn-edit-event" class="btn btn-secondary" style="padding: 6px 16px; font-size: 0.9rem;">
-                                            <i class="fa-solid fa-pen"></i> Upravit detaily</button>
-                                        <a id="btn-open-calendar" href="#" target="_blank" class="btn btn-secondary"
-                                            style="padding: 6px 16px; font-size: 0.9rem; text-decoration: none;">
-                                            <i class="fa-solid fa-calendar-days"></i> Google Kalendář
-                                        </a>
-                                     </div>
+                            style="position: relative; padding: 28px 32px 32px 32px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); margin-bottom: 30px;">
+                            
+                            <!-- Top Action Bar & Title -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 20px; margin-bottom: 24px; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 280px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                        <span style="background: rgba(205, 33, 60, 0.2); color: var(--accent); border: 1px solid rgba(205, 33, 60, 0.4); font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-calendar-check"></i> Koncert / Událost
+                                        </span>
+                                    </div>
+                                    <h2 id="detail-title" style="font-size: 2.2rem; margin: 0 0 10px 0; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; color: #fff;">Název</h2>
+                                    <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center; color: var(--text-muted); font-size: 0.95rem;">
+                                        <span style="display: inline-flex; align-items: center; gap: 8px; color: #fff; font-weight: 600;">
+                                            <i class="fa-regular fa-calendar" style="color: var(--accent);"></i> <span id="detail-date">datum</span>
+                                        </span>
+                                        <span style="display: inline-flex; align-items: center; gap: 8px;">
+                                            <i class="fa-solid fa-location-dot" style="color: var(--accent);"></i> <span id="detail-location">místo</span>
+                                        </span>
+                                    </div>
+                                </div>
 
-                                    <div class="playlist-upload-area"
-                                        style="border: 2px dashed rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 30px 20px; text-align: center; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; background: rgba(0,0,0,0.15);">
-                                        <p id="detail-playlist-info"
-                                            style="color: rgba(255,255,255,0.85); margin: 0; font-size: 1rem;">Zatím
-                                            nebyl nahrán playlist pro tento koncert.</p>
-                                        <div
-                                            style="display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;">
-                                            <label class="btn btn-secondary" style="margin: 0; cursor: pointer;">
-                                                <i class="fa-solid fa-cloud-arrow-up"></i> Nahrát z PC (PDF)
-                                                <input type="file" id="upload-pdf-input" style="display: none;"
-                                                    accept="application/pdf">
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <button id="btn-edit-event" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.85rem;" title="Upravit informace o události">
+                                        <i class="fa-solid fa-pen"></i> Upravit
+                                    </button>
+                                    <a id="btn-open-calendar" href="#" target="_blank" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.85rem; text-decoration: none;" title="Otevřít v Google Kalendáři">
+                                        <i class="fa-solid fa-calendar-days"></i> Kalendář
+                                    </a>
+                                    <button id="btn-delete-event" class="btn btn-danger" style="padding: 8px 14px; font-size: 0.85rem;" title="Smazat událost">
+                                        <i class="fa-solid fa-trash"></i> Smazat
+                                    </button>
+                                    <button id="close-detail" class="btn btn-ghost" style="padding: 8px 14px; font-size: 0.85rem;" title="Zavřít detail">
+                                        <i class="fa-solid fa-xmark"></i> Zavřít
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 2 Column Grid for Content Cards -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+                                
+                                <!-- Left Column: Playlist & Záskoky -->
+                                <div style="display: flex; flex-direction: column; gap: 24px;">
+                                    
+                                    <!-- Playlist Box Card -->
+                                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <h4 style="margin: 0; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff;">
+                                                <i class="fa-solid fa-music" style="color: var(--accent);"></i> Playlist a Noty
+                                            </h4>
+                                        </div>
+                                        
+                                        <div class="playlist-upload-area" style="background: rgba(0, 0, 0, 0.25); border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                                            <div id="detail-playlist-info" style="color: rgba(255,255,255,0.9); margin: 0; font-size: 0.95rem; width: 100%;">
+                                                Zatím nebyl nahrán playlist pro tento koncert.
+                                            </div>
+                                        </div>
+
+                                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                            <button class="btn btn-primary" id="btn-create-playlist-link" style="flex: 1; min-width: 170px; padding: 10px 14px; font-size: 0.9rem; justify-content: center;">
+                                                <i class="fa-solid fa-wand-magic-sparkles"></i> PlaylistMaker
+                                            </button>
+                                            <label id="label-upload-pdf" class="btn btn-secondary" style="flex: 1; min-width: 150px; margin: 0; cursor: pointer; padding: 10px 14px; font-size: 0.9rem; justify-content: center;">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i> <span id="label-upload-pdf-text">Nahrát PDF</span>
+                                                <input type="file" id="upload-pdf-input" style="display: none;" accept="application/pdf">
                                             </label>
-                                            <button class="btn btn-primary" id="btn-create-playlist-link" style="margin: 0;">
-                                                <i class="fa-solid fa-wand-magic-sparkles"></i> Vytvořit v PlaylistMakeru</button>
                                         </div>
                                     </div>
 
-                                    <button class="btn btn-secondary" id="btn-trigger-media-upload"
-                                        style="margin-top: auto; padding: 12px; font-size: 1rem; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px;">
-                                        <i class="fa-solid fa-photo-film"></i> Nahrát Fotky/Videa/Audio
-                                    </button>
+                                    <!-- Záskoky Card -->
+                                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <h4 style="margin: 0; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff;">
+                                                <i class="fa-solid fa-users" style="color: var(--accent);"></i> Záskoky na koncert
+                                            </h4>
+                                        </div>
 
-                                    <input type="file" id="upload-media-input" style="display: none;" multiple
-                                        accept="image/*,video/*">
-                                </div>
+                                        <ul id="zaskoky-list" class="zaskoky-list-inline" style="margin: 0; display: flex; flex-direction: column; gap: 8px;">
+                                            <!-- Generováno z JS -->
+                                        </ul>
 
-                                <!-- Pravej sloupec -->
-                                <div class="detail-right">
-                                    <h4 class="detail-heading">Poznámky pro kapelu</h4>
-                                    <div id="detail-public-desc" class="detail-box"></div>
-
-                                    <h4 class="detail-heading">Poznámky pro mě</h4>
-                                    <div id="detail-internal-notes" class="detail-box"></div>
-
-                                    <h4 class="detail-heading">Záskoky</h4>
-                                    <ul id="zaskoky-list" class="zaskoky-list-inline">
-                                        <!-- Generováno z JS -->
-                                    </ul>
-                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
-                                        <select id="add-zaskok-input"
-                                            style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px; color: #fff; flex: 1;">
-                                            <option value="">Vyber zástupný nástroj...</option>
-                                        </select>
-                                        <button id="add-zaskok-btn" class="btn btn-secondary">+ přidat</button>
+                                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                                            <select id="add-zaskok-input" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 8px; color: #fff; flex: 1; font-size: 0.9rem;">
+                                                <option value="">Vyber zástupný nástroj...</option>
+                                            </select>
+                                            <button id="add-zaskok-btn" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.9rem; white-space: nowrap;">
+                                                <i class="fa-solid fa-plus"></i> Přidat
+                                            </button>
+                                        </div>
                                     </div>
+
                                 </div>
-                            </div>
-                            <div style="position: absolute; bottom: 20px; right: 20px;">
-                                <button id="btn-delete-event" class="btn btn-danger" style="font-size: 0.9rem; padding: 6px 14px;">
-                                    <i class="fa-solid fa-trash"></i> Smazat událost</button>
+
+                                <!-- Right Column: Poznámky -->
+                                <div style="display: flex; flex-direction: column; gap: 24px;">
+                                    
+                                    <!-- Poznámky pro kapelu Card -->
+                                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+                                        <h4 style="margin: 0; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff;">
+                                            <i class="fa-solid fa-bullhorn" style="color: var(--accent);"></i> Poznámky pro kapelu
+                                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(synchronizováno s popisem v Kalendáři)</span>
+                                        </h4>
+                                        <div id="detail-public-desc" class="detail-box" style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px 16px; min-height: 120px; color: rgba(255,255,255,0.9); font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; margin-bottom: 0; flex: 1;"></div>
+                                    </div>
+
+                                    <!-- Interní poznámky Card -->
+                                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+                                        <h4 style="margin: 0; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff;">
+                                            <i class="fa-solid fa-user-lock" style="color: var(--accent);"></i> Poznámky pro mě
+                                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(interní poznámky manažera)</span>
+                                        </h4>
+                                        <div id="detail-internal-notes" class="detail-box" style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px 16px; min-height: 120px; color: rgba(255,255,255,0.9); font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; margin-bottom: 0; flex: 1;"></div>
+                                    </div>
+
+                                </div>
+
                             </div>
                         </div>
                     </div>
@@ -271,10 +316,6 @@
                                     style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
                                     <i class="fa-brands fa-google-drive"></i> Aktuální seznam skladeb
                                 </a>
-                                <a href="#" id="ma-link-missing-parts" class="btn btn-secondary"
-                                    style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                                    <i class="fa-brands fa-google-drive"></i> Seznam chybějících partů
-                                </a>
                             </div>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: flex-start;">
@@ -285,14 +326,22 @@
 
                     <!-- Inline Upload Panel -->
                     <div id="ma-upload-panel" class="form-container glass hidden" style="margin-bottom: 24px;">
-                        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 16px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 16px; flex-wrap: wrap;">
                             <div>
-                                <h3 style="margin: 0 0 4px 0; font-size: 1.05rem;">Přiřazení not a materiálů</h3>
+                                <h3 style="margin: 0 0 4px 0; font-size: 1.05rem;">Přiřazení not a materiálů <span id="ma-upload-song-title" style="color: var(--accent);"></span></h3>
                                 <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Aplikace se pokusila automaticky přiřadit soubory k nástrojům. Zkontrolujte návrh a případně ho opravte.</p>
                             </div>
-                            <button id="ma-upload-modal-close" class="btn btn-secondary" style="padding: 6px 14px; flex-shrink: 0;">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('ma-file-input').click()" style="padding: 6px 12px; font-size: 0.85rem;" title="Vybrat další soubory z PC">
+                                    <i class="fa-solid fa-file-arrow-up"></i> + Soubory
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('ma-folder-input').click()" style="padding: 6px 12px; font-size: 0.85rem;" title="Vybrat celou složku z PC">
+                                    <i class="fa-solid fa-folder-open"></i> + Složka
+                                </button>
+                                <button id="ma-upload-modal-close" class="btn btn-secondary" style="padding: 6px 14px; flex-shrink: 0;">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
                         </div>
                         <div id="ma-upload-files-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 4px;">
                             <!-- Generováno JS -->
@@ -429,9 +478,6 @@
                                 style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <h3 style="margin: 0; font-size: 1.1rem;">Repertoár</h3>
-                                    <button class="btn btn-ghost" id="pm-btn-stats" style="padding: 2px 8px; font-size: 0.85rem;" title="Zobrazí frekvenci hraných skladeb">
-                                        <i class="fa-solid fa-chart-column"></i>
-                                    </button>
                                 </div>
                                 <div class="pm-tools" style="display: flex; gap: 8px; flex-wrap: wrap;">
                                     <input type="text" id="pm-search" placeholder="Hledat skladbu..." class="pm-input"
@@ -442,10 +488,6 @@
                                     <button class="btn btn-secondary" id="pm-add-set"
                                         style="padding: 6px 10px; font-size: 0.9rem; white-space: nowrap;"
                                         title="Nový blok pro dělení playlistu">+ Blok</button>
-                                    <button class="btn btn-secondary" id="pm-btn-import-pdf"
-                                        style="padding: 6px 10px; font-size: 0.9rem; white-space: nowrap;"
-                                        title="Načíst playlist z exportovaného PDF"><i class="fa-solid fa-file-import"></i> Načíst PDF</button>
-                                    <input type="file" id="pm-pdf-import-input" accept="application/pdf" class="hidden">
                                 </div>
                             </div>
                             <div class="pm-list-wrapper">
@@ -459,6 +501,9 @@
                         <div class="pm-blocks panel">
                             <div class="pm-header flex-header" style="margin-bottom: 0; justify-content: flex-end;">
                                 <div style="display: flex; gap: 10px;">
+                                    <button class="btn btn-secondary" id="pm-btn-import-pdf"
+                                        title="Načíst playlist z exportovaného PDF"><i class="fa-solid fa-file-import"></i> Načíst PDF</button>
+                                    <input type="file" id="pm-pdf-import-input" accept="application/pdf" class="hidden">
                                     <button class="btn btn-secondary" id="pm-export-cal" disabled
                                         title="Vyberte událost nahoře"><i class="fa-solid fa-calendar-days"></i> Export do Kalendáře</button>
                                     <button class="btn btn-primary" id="pm-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
@@ -507,160 +552,28 @@
         </div>
     </div>
 
-    <!-- Nápověda hudebního ředitele (Mirek) -->
-    <!-- Nápověda hudebního ředitele (Mirek) -->
+    <!-- Dialog oznámení / nápovědy (Mirek) -->
     <div id="helper-character" class="helper hidden">
-        <div class="helper-content">
-            <!-- Můžeš si tady nahradit fotku reálného Mirka (zatím kreslený placeholder) -->
+        <div class="helper-content" style="max-width: 500px; padding: 28px; border-radius: 20px;">
             <img class="helper-avatar" src="/static/assets/Mirek.png" alt="Mirek">
             <h3 class="helper-name">Mirek</h3>
-            <div class="helper-bubble">
+            <div class="helper-bubble" style="margin-bottom: 10px;">
                 <span id="helper-text">...</span>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 10px; justify-content: center;">
+            <div style="display: flex; gap: 12px; margin-top: 15px; justify-content: center; width: 100%;">
                 <button id="helper-cancel" class="btn btn-secondary"
-                    style="padding: 8px 30px; display: none;">Ne</button>
-                <button id="helper-close" class="btn btn-primary" style="padding: 8px 30px;">Zavřít</button>
+                    style="padding: 8px 24px; display: none;">Ne</button>
+                <button id="helper-close" class="btn btn-primary" style="padding: 8px 24px;">Zavřít</button>
             </div>
         </div>
     </div>
-    <!-- Statistiky Modal -->
-    <div id="stats-modal-overlay" style="
-        position: fixed; inset: 0; z-index: 9999;
-        background: rgba(0, 0, 0, 0.75);
-        backdrop-filter: blur(8px);
-        display: none; align-items: center; justify-content: center;
-        padding: 20px;
-        opacity: 0;
-        transition: opacity 0.4s ease;
-    ">
-        <div id="stats-modal" style="
-            background: linear-gradient(135deg, rgba(30,30,60,0.97) 0%, rgba(15,15,35,0.97) 100%);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 24px;
-            padding: 30px;
-            max-width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            transform: scale(0.92);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        ">
-            <h2 style="margin: 0; font-size: 1.5rem; text-align: center;">Statistiky Odehraných Písní</h2>
-            <div id="stats-content" style="
-                display:flex; flex-direction: column; gap: 8px; font-size: 0.95rem; color: rgba(255,255,255,0.85);
-            ">
-            </div>
-            <button id="stats-modal-close" class="btn btn-primary" style="margin-top: 15px; align-self: center; padding: 10px 30px; border-radius: 12px;">Zavřít</button>
-        </div>
-    </div>
-
-    <!-- Uvítací modal na přihlašovací obrazovce -->
-    <div id="welcome-modal-overlay" style="
-        position: fixed; inset: 0; z-index: 9999;
-        background: rgba(0, 0, 0, 0.75);
-        backdrop-filter: blur(8px);
-        display: none; align-items: center; justify-content: center;
-        padding: 20px;
-        opacity: 0;
-        transition: opacity 0.4s ease;
-    ">
-        <div id="welcome-modal" style="
-            background: linear-gradient(135deg, rgba(30,30,60,0.97) 0%, rgba(15,15,35,0.97) 100%);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 24px;
-            padding: 40px;
-            max-width: 560px;
-            width: 100%;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 60px rgba(100,80,255,0.15);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            transform: scale(0.92);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        ">
-            <!-- Mirek avatar -->
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                <div style="
-                    width: 90px; height: 90px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, rgba(100,80,255,0.3), rgba(255,80,180,0.2));
-                    border: 2px solid rgba(255,255,255,0.2);
-                    display: flex; align-items: center; justify-content: center;
-                    overflow: hidden;
-                    box-shadow: 0 0 25px rgba(100,80,255,0.4);
-                ">
-                    <img src="/static/assets/Mirek.png" alt="Mirek"
-                        style="width: 100%; height: 100%; object-fit: cover;">
-                </div>
-                <span style="font-weight: 700; font-size: 1rem; color: rgba(255,255,255,0.9); letter-spacing: 0.05em;">Mirek</span>
-            </div>
-
-            <!-- Bublina s textem -->
-            <div style="
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                gap: 16px;
-                font-size: 0.95rem;
-                line-height: 1.7;
-                color: rgba(255,255,255,0.88);
-            ">
-                <!-- Uvítání -->
-                <p style="margin: 0;">
-                    Ahoj! Jsem <strong>Mirek</strong> – průvodce aplikací BandManager. V každé sekci mě můžeš zavolat tlačítkem s <strong>otazníčkem</strong>, pokusím se osvětlit, o co tady jde.
-                </p>
-
-                <!-- Upozornění -->
-                <div style="
-                    background: rgba(251, 146, 60, 0.12);
-                    border: 1px solid rgba(251, 146, 60, 0.45);
-                    border-radius: 12px;
-                    padding: 16px 18px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                ">
-                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #fb923c; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                        <i class="fa-solid fa-circle-info"></i>
-                        Produkční nasazení
-                    </div>
-                    <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; color: rgba(255,255,255,0.82);">
-                        <li>Aplikace je nyní <strong>ostře nasazena</strong> a propojena se sdílenou složkou a kalendářem orchestru.</li>
-                        <li>Pro funkčnost je nutné se přihlásit účtem <strong style="color: #fb923c;">offbeatorchestra@gmail.com</strong> a potvrdit přístupy.</li>
-                        <li>Změny provedené v aplikaci (akce, noty, playlisty) se promítají do <strong>reálných sdílených dat</strong>.</li>
-                        <li>Pokud narazíte na jakoukoliv chybu, dejte mi prosím vědět – ladíme detaily za pochodu! 🙏</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Tlačítko -->
-            <button id="welcome-modal-close" class="btn btn-primary" style="
-                padding: 12px 40px;
-                font-size: 1rem;
-                font-weight: 700;
-                letter-spacing: 0.04em;
-                border-radius: 12px;
-                box-shadow: 0 4px 20px rgba(100,80,255,0.4);
-                width: 100%;
-                max-width: 300px;
-            ">
-                <i class="fa-solid fa-circle-check"></i>&nbsp; Rozumím, přihlásit se
-            </button>
-        </div>
-    </div>
-
 
     <!-- Hidden inputy pro výběr souborů/složky -->
     <input type="file" id="ma-folder-input" webkitdirectory mozdirectory directory multiple class="hidden">
     <input type="file" id="ma-file-input" multiple class="hidden">
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script src="/static/app.js?v=5"></script>
+    <script src="/static/app.js?v=8"></script>
 </body>
 
 </html>

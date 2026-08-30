@@ -606,24 +606,30 @@ def segment_pdf(
             curr_fam = current_segment["family"]
             curr_num = current_segment["num"]
 
+            # 1. Score transitions
             if p["part_key"] == "Score":
                 if curr_pk != "Score":
                     is_new_part = True
             elif curr_pk == "Score":
                 is_new_part = True
+
+            # 2. Part transitions
             else:
-                # If this page has the Song Title, and its part_key differs, it definitely starts a new part!
-                if p["has_song_title"] and p["part_key"] != "Other":
+                # If page does NOT have the song title:
+                if not p["has_song_title"]:
+                    # If it has the same instrument family, it is ALWAYS a continuation page (e.g. page 2 of Flute, Bass, Alto Sax 1)!
+                    if p["family"] == curr_fam:
+                        is_new_part = False
+                    elif p["part_key"] != "Other" and p["part_key"] != curr_pk:
+                        is_new_part = True
+                    else:
+                        is_new_part = False
+                else:
+                    # Page HAS the song title -> It starts a new part if instrument / part number differs!
                     if p["part_key"] != curr_pk:
                         is_new_part = True
-                elif p["part_key"] != "Other" and curr_pk != "Other":
-                    # If page does NOT have title, check if family matches current segment
-                    if p["family"] == curr_fam and (p["num"] is None or p["num"] == curr_num):
-                        is_new_part = False  # Continuation page of current part
-                    elif p["part_key"] != curr_pk:
-                        is_new_part = True
-                elif p["part_key"] != curr_pk:
-                    is_new_part = True
+                    else:
+                        is_new_part = False
 
         if is_new_part:
             if current_segment:

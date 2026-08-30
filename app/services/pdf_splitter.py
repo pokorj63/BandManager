@@ -69,6 +69,7 @@ DETECTION_RULES = [
             "synthesizer",
         ],
     },
+    # 3. Baritone Sax before general Sax
     {
         "canonical": "Baritone Sax",
         "family": "Baryton Sax",
@@ -84,12 +85,16 @@ DETECTION_RULES = [
             "bar. sax",
             "bar.sax",
             "bar sax",
+            "bari. sax",
+            "bari.sax",
+            "bari sax",
             "baritone",
             "baryton",
             "bari",
             "eb baritone",
         ],
     },
+    # 4. Alto Sax
     {
         "canonical": "Alto Sax",
         "family": "Alto Sax",
@@ -103,12 +108,15 @@ DETECTION_RULES = [
             "a.sax",
             "a. sax",
             "a sax",
-            "es alt",
-            "eb alto",
+            "alto 1",
+            "alto 2",
             "alto",
             "alt",
+            "es alt",
+            "eb alto",
         ],
     },
+    # 5. Tenor Sax
     {
         "canonical": "Tenor Sax",
         "family": "Tenor Sax",
@@ -121,11 +129,14 @@ DETECTION_RULES = [
             "t.sax",
             "t. sax",
             "t sax",
+            "tenor 1",
+            "tenor 2",
+            "tenor",
             "b tenor",
             "bb tenor",
-            "tenor",
         ],
     },
+    # 6. Soprano Sax
     {
         "canonical": "Soprano Sax",
         "family": "Soprano Sax",
@@ -140,6 +151,7 @@ DETECTION_RULES = [
             "soprano",
         ],
     },
+    # 7. Trumpet
     {
         "canonical": "Trumpet",
         "family": "Trumpet",
@@ -160,6 +172,7 @@ DETECTION_RULES = [
             "b trubka",
         ],
     },
+    # 8. Trombone
     {
         "canonical": "Trombone",
         "family": "Trombone",
@@ -178,6 +191,7 @@ DETECTION_RULES = [
             "trombon",
         ],
     },
+    # 9. Flute
     {
         "canonical": "Flute",
         "family": "Flute",
@@ -192,6 +206,7 @@ DETECTION_RULES = [
             "pikola",
         ],
     },
+    # 10. Clarinet
     {
         "canonical": "Clarinet",
         "family": "Clarinet",
@@ -209,6 +224,7 @@ DETECTION_RULES = [
             "basklarinet",
         ],
     },
+    # 11. Horn
     {
         "canonical": "Horn",
         "family": "Horn",
@@ -222,38 +238,66 @@ DETECTION_RULES = [
             "waldhorn",
         ],
     },
+    # 12. Tuba
     {
         "canonical": "Tuba",
         "family": "Tuba",
         "num": None,
         "keywords": ["tuba", "sousaphone", "heligon"],
     },
+    # 13. BASS (Must be BEFORE Guitar so 'Bass Guitar' matches Bass!)
+    {
+        "canonical": "Bass",
+        "family": "Bass",
+        "num": "detect",
+        "keywords": [
+            "bass guitar",
+            "baskytara",
+            "bassguitar",
+            "electric bass",
+            "el bass",
+            "el. bass",
+            "kontrabas",
+            "upright bass",
+            "string bass",
+            "bg",
+            "bgy",
+            "bass",
+            "basa",
+        ],
+    },
+    # 14. Guitar (Checked AFTER Bass)
     {
         "canonical": "Guitar",
         "family": "Guitar",
         "num": "detect",
         "keywords": [
-            "guitar",
-            "kytara",
             "electric guitar",
             "el guitar",
             "el. guitar",
             "ac guitar",
             "ac. guitar",
+            "jazz guitar",
+            "rhythm guitar",
+            "acoustic guitar",
+            "guitar",
+            "kytara",
             "gtr",
             "gtr.",
             "git",
             "git.",
             "kyt",
-            "jazz guitar",
-            "rhythm guitar",
         ],
     },
+    # 15. Piano / Keys
     {
         "canonical": "Piano",
         "family": "Piano",
         "num": "detect",
         "keywords": [
+            "electric piano",
+            "el piano",
+            "el. piano",
             "piano",
             "klavir",
             "keys",
@@ -271,36 +315,17 @@ DETECTION_RULES = [
             "pianino",
         ],
     },
-    {
-        "canonical": "Bass",
-        "family": "Bass",
-        "num": "detect",
-        "keywords": [
-            "bass guitar",
-            "baskytara",
-            "bass",
-            "basa",
-            "bassguitar",
-            "electric bass",
-            "el bass",
-            "el. bass",
-            "kontrabas",
-            "upright bass",
-            "string bass",
-            "bg",
-            "bgy",
-        ],
-    },
+    # 16. Drums / Percussion
     {
         "canonical": "Drums",
         "family": "Drums",
         "num": None,
         "keywords": [
-            "drums",
-            "bici",
             "drum set",
             "drum kit",
+            "drums",
             "bici souprava",
+            "bici",
             "percussion",
             "perc",
             "perc.",
@@ -313,15 +338,16 @@ DETECTION_RULES = [
             "timpani",
         ],
     },
+    # 17. Lead Vocal / Voice
     {
         "canonical": "Lead Vocal",
         "family": "Main Vocals",
         "num": None,
         "keywords": [
             "lead vocal",
+            "voice",
             "vocal",
             "zpev",
-            "voice",
             "solo vocal",
             "vocal solo",
             "zpevak",
@@ -333,6 +359,7 @@ DETECTION_RULES = [
             "lead",
         ],
     },
+    # 18. Back Vocals / Choir / Sbor
     {
         "canonical": "Back Vocals",
         "family": "Back Vocals",
@@ -341,8 +368,8 @@ DETECTION_RULES = [
             "back vocal",
             "back vocals",
             "backing vocals",
-            "sbor",
             "choir",
+            "sbor",
             "vokaly",
             "vok",
             "bvox",

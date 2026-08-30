@@ -410,12 +410,25 @@ def extract_num_following_or_preceding(text: str, keywords: list[str]) -> Option
     return None
 
 
-def detect_page_part_identity(text: str) -> tuple[str, str, Optional[str]]:
+def detect_page_part_identity(
+    text: str, song_title: str = ""
+) -> tuple[str, str, Optional[str], bool]:
     """
-    Returns (part_key: str, family: str, num: Optional[str])
+    Returns: (part_key: str, family: str, num: Optional[str], has_song_title: bool)
     part_key is a unique string identifying the exact part in the PDF (e.g. 'Score', 'Flute', 'Alto Sax 1', 'Alto Sax 2', 'Bass Trombone').
     """
     norm = normalize_text(text)
+
+    # Check if song title appears on this page (strong indicator of Part Page 1)
+    has_title = False
+    if song_title:
+        norm_title = normalize_text(song_title)
+        if norm_title and norm_title in norm:
+            has_title = True
+        else:
+            title_words = [w for w in norm_title.split() if len(w) >= 4]
+            if len(title_words) >= 2 and all(w in norm for w in title_words[:2]):
+                has_title = True
 
     # 1. Count distinct instrument families in text
     families_present = set()
@@ -428,7 +441,7 @@ def detect_page_part_identity(text: str) -> tuple[str, str, Optional[str]]:
 
     # If 3 or more distinct instrument families appear, it is a Full Score!
     if len(families_present) >= 3:
-        return "Score", "Score", None
+        return "Score", "Score", None, has_title
 
     # Check explicit Score keywords (unless it's piano conductor/vocal)
     is_piano_conductor = any(
@@ -446,7 +459,7 @@ def detect_page_part_identity(text: str) -> tuple[str, str, Optional[str]]:
         for kw in SCORE_KEYWORDS:
             pattern = r"(^|[^a-z0-9])" + re.escape(kw) + r"($|[^a-z0-9])"
             if re.search(pattern, norm):
-                return "Score", "Score", None
+                return "Score", "Score", None, has_title
 
     # 2. Match rules in priority order
     for rule in DETECTION_RULES:
@@ -464,13 +477,13 @@ def detect_page_part_identity(text: str) -> tuple[str, str, Optional[str]]:
             if rule["num"] == "detect":
                 num = extract_num_following_or_preceding(norm, rule["keywords"])
                 part_key = f"{canonical} {num}" if num else canonical
-                return part_key, family, num
+                return part_key, family, num, has_title
             elif rule["num"] == "bass":
-                return canonical, family, "bass"
+                return canonical, family, "bass", has_title
             else:
-                return canonical, family, None
+                return canonical, family, None, has_title
 
-    return "Other", "Other", None
+    return "Other", "Other", None, has_title
 
 
 def map_part_to_band_instrument(
@@ -529,7 +542,7 @@ def match_instrument_name(
 ) -> tuple[str, Optional[str], float]:
     """Compatibility wrapper for single file analysis."""
     combined_text = f"{header_text}\n{full_page_text}"
-    pkey, fam, num = detect_page_part_identity(combined_text)
+    pkey, fam, num, _ = detect_page_part_identity(combined_text)
 
     band_dicts = [{"name": name} for name in band_instruments]
     ft, inst_name, _ = map_part_to_band_instrument(pkey, fam, num, band_dicts)
@@ -566,7 +579,7 @@ def segment_pdf(
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         header_snippet = " | ".join(lines[:4]) if lines else ""
 
-        part_key, family, num = detect_page_part_identity(raw_text)
+        part_key, family, num, has_title = detect_page_part_identity(raw_text, song_title)
 
         page_infos.append(
             {
@@ -574,17 +587,43 @@ def segment_pdf(
                 "part_key": part_key,
                 "family": family,
                 "num": num,
+                "has_song_title": has_title,
                 "header_snippet": header_snippet[:120],
                 "raw_text": raw_text,
             }
         )
 
-    # Step 2: Group contiguous pages into segments based on part_key
+    # Step 2: Group contiguous pages into segments based on part_key and continuation
     segments = []
     current_segment = None
 
     for p in page_infos:
-        is_new_part = (current_segment is None) or (p["part_key"] != current_segment["part_key"])
+        is_new_part = False
+        if current_segment is None:
+            is_new_part = True
+        else:
+            curr_pk = current_segment["part_key"]
+            curr_fam = current_segment["family"]
+            curr_num = current_segment["num"]
+
+            if p["part_key"] == "Score":
+                if curr_pk != "Score":
+                    is_new_part = True
+            elif curr_pk == "Score":
+                is_new_part = True
+            else:
+                # If this page has the Song Title, and its part_key differs, it definitely starts a new part!
+                if p["has_song_title"] and p["part_key"] != "Other":
+                    if p["part_key"] != curr_pk:
+                        is_new_part = True
+                elif p["part_key"] != "Other" and curr_pk != "Other":
+                    # If page does NOT have title, check if family matches current segment
+                    if p["family"] == curr_fam and (p["num"] is None or p["num"] == curr_num):
+                        is_new_part = False  # Continuation page of current part
+                    elif p["part_key"] != curr_pk:
+                        is_new_part = True
+                elif p["part_key"] != curr_pk:
+                    is_new_part = True
 
         if is_new_part:
             if current_segment:

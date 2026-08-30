@@ -581,7 +581,32 @@ def generate_sub_folder(
 
     sub_role_norm = normalize_role(sub.role)
 
-    # Postupně v pořadí z playlistu hledat a kopírovat příslušný part
+    # 1. Zkopírovat přiložený PDF playlist do složky pro záskok (pojmenovaný tak, aby byl v seznamu nahoře)
+    playlist_item = (
+        db.query(MediaItem)
+        .filter(
+            MediaItem.event_id == event_id,
+            (MediaItem.category == "playlist") | (MediaItem.name.like("Playlist%")),
+        )
+        .order_by(MediaItem.created_at.desc())
+        .first()
+    )
+    if playlist_item and playlist_item.drive_file_id:
+        try:
+            pl_filename = playlist_item.name or "Playlist.pdf"
+            if not pl_filename.startswith("00"):
+                pl_filename = f"00 - {pl_filename}"
+            drv.files().copy(
+                fileId=playlist_item.drive_file_id,
+                body={
+                    "name": pl_filename,
+                    "parents": [target_folder_id],
+                },
+            ).execute()
+        except Exception as pl_err:
+            print(f"Error copying playlist PDF into sub folder: {pl_err}")
+
+    # 2. Postupně v pořadí z playlistu hledat a kopírovat příslušný part
     copied = 0
     for song_id in ev.playlist_songs:
         song_info = db.query(Song).filter(Song.id == song_id).first()

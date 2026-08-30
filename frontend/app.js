@@ -1240,11 +1240,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     return fileEntries;
   }
 
-  function processSelectedFiles(files) {
-    if (files.length === 0) return;
+  let pdfSplitMode = false;
+  let splitPdfFile = null;
+  let splitSegments = [];
+
+  async function processSelectedFiles(files) {
+    if (!files || files.length === 0) return;
+
+    maUploadPanel.classList.remove("hidden");
+    maUploadPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Pokud je vybrán jeden PDF soubor, zkusíme spustit chytrý PDF splitter
+    const pdfFiles = files.filter(f => f.name.toLowerCase().endsWith(".pdf"));
+    if (files.length === 1 && pdfFiles.length === 1) {
+      const pdfFile = pdfFiles[0];
+      await analyzeAndDisplaySplitPdf(pdfFile);
+      return;
+    }
+
+    // Jinak standardní více-souborové nahrávání
+    pdfSplitMode = false;
+    splitPdfFile = null;
+    splitSegments = [];
 
     const matchedInstruments = new Set();
-
     filesToUpload = files.map((file) => {
       // Předáme název písně pro inteligentnější ořezání šumu v názvu souboru
       const { type, instrumentName } = guessFileType(
@@ -1259,8 +1278,241 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     renderFilesToUpload();
-    maUploadPanel.classList.remove("hidden");
-    maUploadPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Pokud obsahuje PDF soubory, pošleme je na backend pro dodatečné ověření ze záhlaví
+    const hasPdfs = files.some(f => f.name.toLowerCase().endsWith(".pdf"));
+    if (hasPdfs) {
+      try {
+        const formData = new FormData();
+        files.forEach(f => formData.append("files", f));
+        const res = await fetch(`/ma/songs/${currentSongIdForUpload}/analyze_files`, {
+          method: "POST",
+          body: formData,
+        });
+        if (res.ok) {
+          const analyzed = await res.json();
+          analyzed.forEach((item, idx) => {
+            if (filesToUpload[idx] && item.file_type !== "other") {
+              if (filesToUpload[idx].type === "other" || (!filesToUpload[idx].instrumentName && item.instrument_name)) {
+                filesToUpload[idx].type = item.file_type;
+                filesToUpload[idx].instrumentName = item.instrument_name;
+              }
+            }
+          });
+          renderFilesToUpload();
+        }
+      } catch (err) {
+        console.warn("Background file analysis fallback:", err);
+      }
+    }
+  }
+
+  async function analyzeAndDisplaySplitPdf(pdfFile) {
+    pdfSplitMode = true;
+    splitPdfFile = pdfFile;
+    splitSegments = [];
+    filesToUpload = [];
+
+    if (maBtnConfirmUpload) {
+      maBtnConfirmUpload.disabled = true;
+      maBtnConfirmUpload.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analyzuji PDF...`;
+    }
+
+    maFilesList.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 35px 20px; gap: 12px; color: var(--text-muted); text-align: center;">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size: 2.2rem; color: var(--accent);"></i>
+        <div style="font-weight: 700; color: #fff; font-size: 1.05rem;">Analyzuji stránky a záhlaví PDF (${pdfFile.name})...</div>
+        <div style="font-size: 0.85rem;">Detekuji partituru, nástroje a chybějící party pro kapelu.</div>
+      </div>
+    `;
+
+    try {
+      const formData = new FormData();
+      formData.append("file", pdfFile);
+
+      const res = await fetch(`/ma/songs/${currentSongIdForUpload}/analyze_pdf`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Chyba při analýze PDF");
+      }
+
+      const data = await res.json();
+      if (!data.segments || data.segments.length === 0 || data.total_pages <= 1) {
+        // Jednostránkový nebo nerozpoznaný PDF -> přepnout na standardní zobrazení
+        pdfSplitMode = false;
+        splitPdfFile = null;
+        splitSegments = [];
+        const matched = new Set();
+        const { type, instrumentName } = guessFileType(pdfFile.name, matched, currentSongTitleForUpload);
+        filesToUpload = [{ file: pdfFile, type, instrumentName }];
+        renderFilesToUpload();
+        return;
+      }
+
+      splitSegments = data.segments.map(seg => ({
+        ...seg,
+        selected: seg.is_missing || seg.file_type === "score" || (!seg.already_exists && seg.file_type === "part"),
+      }));
+
+      renderSplitPdfSegments(data);
+    } catch (e) {
+      console.error(e);
+      // Fallback na standardní nahrávání
+      pdfSplitMode = false;
+      splitPdfFile = null;
+      splitSegments = [];
+      const matched = new Set();
+      const { type, instrumentName } = guessFileType(pdfFile.name, matched, currentSongTitleForUpload);
+      filesToUpload = [{ file: pdfFile, type, instrumentName }];
+      renderFilesToUpload();
+    }
+  }
+
+  function renderSplitPdfSegments(data) {
+    if (!maFilesList) return;
+    maFilesList.innerHTML = "";
+
+    const missingCount = splitSegments.filter(s => s.is_missing).length;
+
+    // Header info banner
+    const banner = document.createElement("div");
+    banner.style = "background: rgba(205, 33, 60, 0.12); border: 1px solid rgba(205, 33, 60, 0.35); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;";
+    banner.innerHTML = `
+      <div>
+        <div style="font-weight: 700; color: #fff; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent);"></i> Chytrý PDF Splitter
+          <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(${data.filename || (splitPdfFile ? splitPdfFile.name : "")} – ${data.total_pages ? data.total_pages + " stran, " : ""}nalezeno ${splitSegments.length} oddílů)</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+          ${missingCount > 0 ? `<strong style="color: #4ade80;">✨ Nalezeno ${missingCount} chybějících partů</strong> pro tuto skladbu.` : `Všechny nalezené party jsou připraveny k rozdělení a nahrání.`}
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.maSelectAllSegments(true)">Vybrat vše</button>
+        <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.maSelectOnlyMissingSegments()">Jen chybějící</button>
+        <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="window.maSelectAllSegments(false)">Odznačit vše</button>
+      </div>
+    `;
+    maFilesList.appendChild(banner);
+
+    // List of segments
+    splitSegments.forEach((seg, index) => {
+      const div = document.createElement("div");
+      div.className = "glass-row";
+      div.style = "justify-content: space-between; gap: 12px; padding: 10px 14px; align-items: center;";
+
+      const partsOptions = instrumentsCache
+        .map(
+          (inst) =>
+            `<option value="part:${inst.name}" ${
+              seg.file_type === "part" && seg.instrument_name === inst.name
+                ? "selected"
+                : ""
+            }>Part: ${inst.name}</option>`,
+        )
+        .join("");
+
+      let statusBadge = "";
+      if (seg.is_missing) {
+        statusBadge = `<span style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap;">✨ Chybějící part</span>`;
+      } else if (seg.file_type === "score") {
+        statusBadge = `<span style="background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap;">Partitura</span>`;
+      } else if (seg.already_exists) {
+        statusBadge = `<span style="background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap;">⚠️ Přepíše existující</span>`;
+      }
+
+      div.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+          <input type="checkbox" ${seg.selected ? "checked" : ""} style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0;" onchange="window.toggleSplitSegmentSelect(${index}, this.checked)">
+          <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-weight: 700; font-size: 0.95rem; color: #fff;">${seg.title}</span>
+              ${statusBadge}
+              <span style="font-size: 0.8rem; color: var(--text-muted); background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 6px;">
+                Str. ${seg.page_start}${seg.page_start !== seg.page_end ? `–${seg.page_end}` : ""} (${seg.page_count} ${seg.page_count === 1 ? 'strana' : seg.page_count < 5 ? 'strany' : 'stran'})
+              </span>
+            </div>
+            ${seg.header_snippet ? `<span style="font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;" title="${seg.header_snippet}">Záhlaví: ${seg.header_snippet}</span>` : ""}
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <select style="background: rgba(0,0,0,0.4); color: white; border: 1px solid var(--glass-border); border-radius: 6px; padding: 5px 8px; font-size: 0.85rem; cursor: pointer;" onchange="window.updateSplitSegmentAssignment(${index}, this.value)">
+            <option value="score" ${seg.file_type === "score" ? "selected" : ""}>Partitura</option>
+            ${partsOptions}
+            <option value="other" ${seg.file_type === "other" ? "selected" : ""}>Jiné</option>
+          </select>
+          <button type="button" class="btn btn-secondary" onclick="window.removeSplitSegment(${index})" title="Odebrat z výběru" style="padding: 5px 10px;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      maFilesList.appendChild(div);
+    });
+
+    updateConfirmUploadButtonText();
+  }
+
+  window.toggleSplitSegmentSelect = function (index, isChecked) {
+    if (splitSegments[index]) {
+      splitSegments[index].selected = isChecked;
+      updateConfirmUploadButtonText();
+    }
+  };
+
+  window.updateSplitSegmentAssignment = function (index, value) {
+    if (!splitSegments[index]) return;
+    if (value.startsWith("part:")) {
+      splitSegments[index].file_type = "part";
+      splitSegments[index].instrument_name = value.split("part:")[1];
+      splitSegments[index].title = `Part: ${splitSegments[index].instrument_name}`;
+    } else if (value === "score") {
+      splitSegments[index].file_type = "score";
+      splitSegments[index].instrument_name = null;
+      splitSegments[index].title = "Partitura";
+    } else {
+      splitSegments[index].file_type = "other";
+      splitSegments[index].instrument_name = null;
+      splitSegments[index].title = `Jiné (str. ${splitSegments[index].page_start}–${splitSegments[index].page_end})`;
+    }
+  };
+
+  window.removeSplitSegment = function (index) {
+    splitSegments.splice(index, 1);
+    if (splitSegments.length === 0) {
+      pdfSplitMode = false;
+      splitPdfFile = null;
+      maUploadPanel.classList.add("hidden");
+      return;
+    }
+    renderSplitPdfSegments({ filename: splitPdfFile ? splitPdfFile.name : "", total_pages: 0 });
+  };
+
+  window.maSelectAllSegments = function (select) {
+    splitSegments.forEach(seg => { seg.selected = select; });
+    renderSplitPdfSegments({ filename: splitPdfFile ? splitPdfFile.name : "", total_pages: 0 });
+  };
+
+  window.maSelectOnlyMissingSegments = function () {
+    splitSegments.forEach(seg => {
+      seg.selected = seg.is_missing || seg.file_type === "score";
+    });
+    renderSplitPdfSegments({ filename: splitPdfFile ? splitPdfFile.name : "", total_pages: 0 });
+  };
+
+  function updateConfirmUploadButtonText() {
+    if (!maBtnConfirmUpload) return;
+    if (pdfSplitMode) {
+      const selected = splitSegments.filter(s => s.selected);
+      maBtnConfirmUpload.innerHTML = `<i class="fa-solid fa-scissors"></i> Rozdělit a nahrát vybrané (${selected.length})`;
+      maBtnConfirmUpload.disabled = selected.length === 0;
+    } else {
+      maBtnConfirmUpload.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Nahrát na Disk (${filesToUpload.length})`;
+      maBtnConfirmUpload.disabled = filesToUpload.length === 0;
+    }
   }
 
   maFolderInput?.addEventListener("change", (e) => {
@@ -1448,54 +1700,55 @@ document.addEventListener("DOMContentLoaded", async () => {
       cleanName.includes("stare") ||
       cleanName.includes("old") ||
       cleanName.includes("archiv");
-    if (isOld) return { type: "other", instrumentName: null };
+    if (isOld) {
+      return { type: "other", instrumentName: null };
+    }
 
-    // --- LOGIKA PŘIŘAZENÍ ---
-
-    // 1. NEJSILNĚJŠÍ: Fuzzy shoda přes rodiny
+    // 1. Zjistíme rodinu nástroje
     for (const family of instrumentFamilies) {
-      if (family.keywords.some((kw) => safeIncludes(nameForRegex, kw))) {
-        if (family.name === "Main Vocals" && nameForRegex.includes("choir"))
-          continue;
-        if (
-          family.name === "Bass" &&
-          (nameForRegex.includes("trombone") || nameForRegex.includes("pozoun"))
-        )
-          continue;
-
-        let candidates = [];
-        for (const inst of instrumentsCache) {
-          if (alreadyMatched.has(inst.name)) continue;
-
-          const normInstName = inst.name
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "");
-          const isInstInFamily = family.keywords.some((kw) => {
-            if (kw.length >= 4) return normInstName.includes(kw);
-            const regexInst = new RegExp(
-              "(^|[^a-z0-9])" + kw + "($|[^a-z0-9])",
-              "i",
-            );
-            return regexInst.test(normInstName);
-          });
-
-          if (isInstInFamily) {
+      const match = family.keywords.some((kw) =>
+        safeIncludes(nameForRegex, kw),
+      );
+      if (match) {
+        // Vyfiltrujeme kandidáty ze seznamu nástrojů kapely, kteří ještě nebyli spárováni
+        const candidates = instrumentsCache
+          .filter((inst) => !alreadyMatched.has(inst.name))
+          .filter((inst) => {
+            const normInst = inst.name
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+            return family.keywords.some((kw) => safeIncludes(normInst, kw));
+          })
+          .map((inst) => {
             const numMatch = inst.name.match(/\d+/);
             const instNumber = numMatch
               ? parseInt(numMatch[0]).toString()
               : null;
+            return { inst, instNumber };
+          });
 
-            if (instNumber && !fileNumbers.includes(instNumber)) continue;
-            candidates.push({ inst, instNumber });
+        if (candidates.length === 0) continue;
+
+        // Pokud má soubor v názvu konkrétní číslo (např. "Trubka 2" -> "2")
+        if (fileNumbers.length > 0) {
+          for (const num of fileNumbers) {
+            const exactNumMatch = candidates.find((c) => c.instNumber === num);
+            if (exactNumMatch) {
+              return {
+                type: "part",
+                instrumentName: exactNumMatch.inst.name,
+              };
+            }
           }
         }
 
-        if (candidates.length > 0) {
-          console.log(
-            `Found candidates for ${family.name}:`,
-            candidates.map((c) => c.inst.name),
-          );
+        // Pokud soubor číslo nemá nebo nebyla shoda čísla
+        const exactUnnumbered = candidates.find((c) => c.instNumber === null);
+        if (exactUnnumbered) {
+          return { type: "part", instrumentName: exactUnnumbered.inst.name };
+        } else {
+          // Např. u pozounu: basstrombone má nejvyšší číslo
           const isBassTbn =
             family.name === "Trombone" &&
             (nameForRegex.includes("bass") ||
@@ -1590,6 +1843,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       `;
       maFilesList.appendChild(div);
     });
+
+    updateConfirmUploadButtonText();
   }
 
   window.updateUploadAssignment = function (index, value) {
@@ -1608,6 +1863,47 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   maBtnConfirmUpload.onclick = async () => {
+    if (pdfSplitMode) {
+      const selected = splitSegments.filter(s => s.selected);
+      if (selected.length === 0) {
+        window.mirekAlert("Vyberte prosím alespoň jeden part k nahrání.");
+        return;
+      }
+
+      maBtnConfirmUpload.disabled = true;
+      const originalText = maBtnConfirmUpload.textContent;
+      maBtnConfirmUpload.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Dělím a nahrávám (${selected.length} partů)...`;
+
+      try {
+        const formData = new FormData();
+        formData.append("file", splitPdfFile);
+        formData.append("rules_json", JSON.stringify(selected));
+
+        const res = await fetch(`/ma/songs/${currentSongIdForUpload}/split_and_upload`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Chyba při dělení a nahrávání PDF.");
+        }
+
+        const resData = await res.json();
+        window.mirekAlert(`Úspěšně rozděleno a nahráno ${resData.uploaded_count} partů na Google Disk!`);
+        maUploadPanel.classList.add("hidden");
+        renderMA();
+        loadMADocLinks();
+      } catch (e) {
+        console.error(e);
+        window.mirekAlert("Chyba při nahrávání: " + e.message);
+      } finally {
+        maBtnConfirmUpload.disabled = false;
+        updateConfirmUploadButtonText();
+      }
+      return;
+    }
+
     if (filesToUpload.length === 0) return;
     maBtnConfirmUpload.disabled = true;
     const originalText = maBtnConfirmUpload.textContent;
@@ -1616,7 +1912,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       let count = 0;
       for (const item of filesToUpload) {
         count++;
-        maBtnConfirmUpload.textContent = `Nahrávám (${count}/${filesToUpload.length})...`;
+        maBtnConfirmUpload.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Nahrávám (${count}/${filesToUpload.length})...`;
 
         const formData = new FormData();
         formData.append("file", item.file);
@@ -1646,7 +1942,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.mirekAlert("Chyba při nahrávání: " + e.message);
     } finally {
       maBtnConfirmUpload.disabled = false;
-      maBtnConfirmUpload.textContent = originalText;
+      updateConfirmUploadButtonText();
     }
   };
 

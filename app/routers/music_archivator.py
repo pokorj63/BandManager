@@ -249,6 +249,256 @@ def update_song(
     return song
 
 
+from app.services.pdf_splitter import segment_pdf, extract_pdf_pages, match_instrument_name
+from pypdf import PdfReader
+import json
+
+
+@router.post("/songs/{song_id}/analyze_pdf")
+async def analyze_song_pdf(
+    song_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    email = get_user_email(request)
+    song = (
+        db.query(Song)
+        .options(joinedload(Song.files))
+        .filter(Song.id == song_id, Song.owner_email == email)
+        .first()
+    )
+    if not song:
+        raise HTTPException(status_code=404, detail="Skladba nenalezena")
+
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Soubor musí být ve formátu PDF.")
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Nahraný soubor je prázdný.")
+
+    # Získat nástrojový setup kapely
+    instruments = (
+        db.query(Instrument)
+        .filter(Instrument.owner_email == email)
+        .all()
+    )
+    inst_dicts = [
+        {"id": inst.id, "name": inst.name, "category": inst.category, "is_tracked": inst.is_tracked}
+        for inst in instruments
+    ]
+
+    existing_files_dicts = [
+        {
+            "id": f.id,
+            "name": f.name,
+            "file_type": f.file_type,
+            "instrument_name": f.instrument_name,
+        }
+        for f in song.files
+    ]
+
+    segments = segment_pdf(content, song.title, inst_dicts, existing_files_dicts)
+
+    total_pages = 0
+    try:
+        reader = PdfReader(io.BytesIO(content))
+        total_pages = len(reader.pages)
+    except:
+        pass
+
+    return {
+        "filename": file.filename,
+        "total_pages": total_pages,
+        "segments": segments,
+    }
+
+
+@router.post("/songs/{song_id}/analyze_files")
+async def analyze_song_files(
+    song_id: int,
+    request: Request,
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+):
+    email = get_user_email(request)
+    song = db.query(Song).filter(Song.id == song_id, Song.owner_email == email).first()
+    if not song:
+        raise HTTPException(status_code=404, detail="Skladba nenalezena")
+
+    instruments = (
+        db.query(Instrument)
+        .filter(Instrument.owner_email == email)
+        .all()
+    )
+    all_band_names = [inst.name for inst in instruments]
+
+    results = []
+    for file in files:
+        filename = file.filename or "unknown"
+        ext = os.path.splitext(filename)[1].lower()
+
+        detected_type = "other"
+        detected_inst = None
+
+        if ext in [".mp3", ".wav", ".mid", ".midi", ".m4a"]:
+            results.append({
+                "filename": filename,
+                "file_type": "audio",
+                "instrument_name": None,
+            })
+            continue
+
+        if ext == ".pdf":
+            try:
+                content = await file.read()
+                if len(content) > 0:
+                    reader = PdfReader(io.BytesIO(content))
+                    if len(reader.pages) > 0:
+                        first_page = reader.pages[0]
+                        raw_text = first_page.extract_text() or ""
+                        lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
+                        header_text = " | ".join(lines[:4]) if lines else ""
+
+                        # Zkusíme záhlaví PDF
+                        ft, inst_name, conf = match_instrument_name(
+                            header_text, raw_text, all_band_names
+                        )
+                        if ft != "other" or inst_name:
+                            detected_type = ft
+                            detected_inst = inst_name
+            except Exception as e:
+                print(f"Analyze multi-file PDF error for {filename}: {e}")
+
+        # Pokud se ze záhlaví nepodařilo určit nebo není PDF, zkusíme název souboru
+        if detected_type == "other" and not detected_inst:
+            ft, inst_name, conf = match_instrument_name(
+                filename, filename, all_band_names
+            )
+            if ft != "other" or inst_name:
+                detected_type = ft
+                detected_inst = inst_name
+
+        results.append({
+            "filename": filename,
+            "file_type": detected_type,
+            "instrument_name": detected_inst,
+        })
+
+    return results
+
+
+@router.post("/songs/{song_id}/split_and_upload")
+async def split_and_upload_song_pdf(
+    song_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    rules_json: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    email = get_user_email(request)
+    song = (
+        db.query(Song)
+        .options(joinedload(Song.files))
+        .filter(Song.id == song_id, Song.owner_email == email)
+        .first()
+    )
+    if not song:
+        raise HTTPException(status_code=404, detail="Skladba nenalezena")
+
+    if not song.drive_folder_id:
+        raise HTTPException(status_code=400, detail="Skladba nemá složku na Disku")
+
+    try:
+        rules = json.loads(rules_json)
+        if not isinstance(rules, list) or len(rules) == 0:
+            raise HTTPException(status_code=400, detail="Nebyly vybrány žádné party k uložení.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Neplatná pravidla rozdělení: {e}")
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Nahraný soubor je prázdný.")
+
+    sid = request.session.get("sid")
+    token_data = TOKENS[sid]
+    creds = get_credentials_from_session(token_data["token"])
+    drv = drive_service(creds)
+
+    dash = " – "
+    uploaded_results = []
+
+    for rule in rules:
+        file_type = rule.get("file_type", "part")
+        instrument_name = rule.get("instrument_name")
+        page_start = int(rule.get("page_start", 1))
+        page_end = int(rule.get("page_end", 1))
+
+        part_pdf_bytes = extract_pdf_pages(content, page_start, page_end)
+        file_like = io.BytesIO(part_pdf_bytes)
+
+        if file_type == "part":
+            display_name = instrument_name if instrument_name else f"Part (str. {page_start}-{page_end})"
+            new_filename = f"{display_name}{dash}{song.title}.pdf"
+        elif file_type == "score":
+            new_filename = f"Partitura{dash}{song.title}.pdf"
+        else:
+            new_filename = f"Jiné (str. {page_start}-{page_end}){dash}{song.title}.pdf"
+
+        drive_file = upload_file_to_drive(
+            drv, song.drive_folder_id, file_like, new_filename, "application/pdf"
+        )
+
+        existing_file = None
+        if file_type == "part":
+            existing_file = (
+                db.query(SongFile)
+                .filter(
+                    SongFile.song_id == song_id,
+                    SongFile.file_type == "part",
+                    SongFile.instrument_name == instrument_name,
+                )
+                .first()
+            )
+        elif file_type == "score":
+            existing_file = (
+                db.query(SongFile)
+                .filter(SongFile.song_id == song_id, SongFile.file_type == "score")
+                .first()
+            )
+
+        if existing_file:
+            existing_file.drive_file_id = drive_file["id"]
+            existing_file.name = new_filename
+        else:
+            new_song_file = SongFile(
+                song_id=song_id,
+                drive_file_id=drive_file["id"],
+                name=new_filename,
+                file_type=file_type,
+                instrument_name=instrument_name if file_type == "part" else None,
+            )
+            db.add(new_song_file)
+
+        uploaded_results.append({
+            "name": new_filename,
+            "instrument_name": instrument_name,
+            "drive_file_id": drive_file["id"],
+        })
+
+    db.commit()
+
+    # Synchronizace Word dokumentu
+    sync_ma_documents(email, drv, db)
+
+    return {
+        "status": "ok",
+        "uploaded_count": len(uploaded_results),
+        "files": uploaded_results,
+    }
+
+
 @router.post("/songs/{song_id}/files")
 async def upload_song_file(
     song_id: int,

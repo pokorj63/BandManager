@@ -7,6 +7,7 @@ from datetime import date, timedelta, datetime, time
 import io
 import re
 import unicodedata
+import urllib.parse
 from pypdf import PdfReader
 from googleapiclient.http import MediaIoBaseDownload
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, Response
@@ -442,19 +443,33 @@ def get_event_playlist_pdf(
     creds = get_credentials_from_session(token)
     drv = drive_service(creds)
 
-    drive_req = drv.files().get_media(fileId=playlist_item.drive_file_id)
-    fh = io.BytesIO()
-    downloader = MediaIoBaseDownload(fh, drive_req)
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
+    try:
+        drive_req = drv.files().get_media(fileId=playlist_item.drive_file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, drive_req)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Nepodařilo se stáhnout soubor playlistu z Google Disku: {str(e)}",
+        )
 
-    filename = playlist_item.name or "Playlist.pdf"
+    raw_filename = playlist_item.name or "Playlist.pdf"
+    # ASCII fallback pro starší/základní hlavičku (odstranění diakritiky)
+    ascii_filename = unicodedata.normalize("NFKD", raw_filename).encode("ascii", "ignore").decode("ascii")
+    if not ascii_filename:
+        ascii_filename = "Playlist.pdf"
+    ascii_filename = ascii_filename.replace('"', "").replace("\r", "").replace("\n", "")
+    # RFC 5987 / RFC 6266 pro plnou podporu UTF-8 znaků (např. Š, č, ř, ž)
+    encoded_filename = urllib.parse.quote(raw_filename, safe="")
+
     return Response(
         content=fh.getvalue(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Disposition": f'inline; filename="{ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}',
             "Cache-Control": "public, max-age=3600",
         },
     )

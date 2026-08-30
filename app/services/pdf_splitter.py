@@ -17,7 +17,6 @@ def normalize_text(text: str) -> str:
     return " ".join(text.split())
 
 
-# Standard music instrument aliases and keyword patterns
 SCORE_KEYWORDS = [
     "partitura",
     "score",
@@ -30,41 +29,45 @@ SCORE_KEYWORDS = [
     "condensed score",
 ]
 
-INSTRUMENT_FAMILIES = [
+# Order matters: more specific families / multi-word keywords first!
+DETECTION_RULES = [
+    # Bass Trombone MUST be before Bass and before Trombone
     {
-        "family": "Alto Sax",
+        "canonical": "Bass Trombone",
+        "family": "Trombone",
+        "num": "bass",
         "keywords": [
-            "alto sax",
-            "alto saxophone",
-            "altsax",
-            "alt sax",
-            "alto",
-            "asax",
-            "a.sax",
-            "a. sax",
-            "a sax",
-            "es alt",
-            "eb alto",
-            "alt",
+            "bass trombone",
+            "basstrombone",
+            "basovy pozoun",
+            "basstrb",
+            "b. tbn",
+            "b.tbn",
+            "b tbn",
+            "b. trb",
+            "b.trb",
+            "b trb",
+        ],
+    },
+    # Synth Brass before Piano
+    {
+        "canonical": "Synth Brass",
+        "family": "Piano",
+        "num": None,
+        "keywords": [
+            "synth brass",
+            "syn. br.",
+            "syn br",
+            "syn.br",
+            "syn brass",
+            "synth",
+            "synthesizer",
         ],
     },
     {
-        "family": "Tenor Sax",
-        "keywords": [
-            "tenor sax",
-            "tenor saxophone",
-            "tenorsax",
-            "tsax",
-            "t.sax",
-            "t. sax",
-            "t sax",
-            "b tenor",
-            "bb tenor",
-            "tenor",
-        ],
-    },
-    {
+        "canonical": "Baritone Sax",
         "family": "Baryton Sax",
+        "num": None,
         "keywords": [
             "baritone sax",
             "baryton sax",
@@ -83,7 +86,45 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
+        "canonical": "Alto Sax",
+        "family": "Alto Sax",
+        "num": "detect",
+        "keywords": [
+            "alto sax",
+            "alt sax",
+            "alto saxophone",
+            "altsax",
+            "asax",
+            "a.sax",
+            "a. sax",
+            "a sax",
+            "es alt",
+            "eb alto",
+            "alto",
+            "alt",
+        ],
+    },
+    {
+        "canonical": "Tenor Sax",
+        "family": "Tenor Sax",
+        "num": "detect",
+        "keywords": [
+            "tenor sax",
+            "tenor saxophone",
+            "tenorsax",
+            "tsax",
+            "t.sax",
+            "t. sax",
+            "t sax",
+            "b tenor",
+            "bb tenor",
+            "tenor",
+        ],
+    },
+    {
+        "canonical": "Soprano Sax",
         "family": "Soprano Sax",
+        "num": "detect",
         "keywords": [
             "soprano sax",
             "sopranosax",
@@ -95,7 +136,9 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
+        "canonical": "Trumpet",
         "family": "Trumpet",
+        "num": "detect",
         "keywords": [
             "trumpet",
             "trubka",
@@ -113,7 +156,9 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
+        "canonical": "Trombone",
         "family": "Trombone",
+        "num": "detect",
         "keywords": [
             "trombone",
             "pozoun",
@@ -126,20 +171,26 @@ INSTRUMENT_FAMILIES = [
             "pzn",
             "pzn.",
             "trombon",
-            "basstrombone",
-            "bass trombone",
-            "basovy pozoun",
-            "basstrb",
-            "b. tbn.",
-            "b.tbn",
-            "b. trb",
-            "b.trb",
-            "b tbn",
-            "b trb",
         ],
     },
     {
+        "canonical": "Flute",
+        "family": "Flute",
+        "num": "detect",
+        "keywords": [
+            "flute",
+            "fletna",
+            "flauto",
+            "fl",
+            "fl.",
+            "piccolo",
+            "pikola",
+        ],
+    },
+    {
+        "canonical": "Clarinet",
         "family": "Clarinet",
+        "num": "detect",
         "keywords": [
             "clarinet",
             "klarinet",
@@ -154,46 +205,28 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
-        "family": "Flute",
-        "keywords": ["flute", "fletna", "flauto", "fl", "fl.", "piccolo", "pikola"],
-    },
-    {
+        "canonical": "Horn",
         "family": "Horn",
-        "keywords": ["french horn", "lesni roh", "horn", "corno", "f horn", "waldhorn"],
-    },
-    {
-        "family": "Tuba",
-        "keywords": ["tuba", "sousaphone", "heligon"],
-    },
-    {
-        "family": "Piano",
+        "num": "detect",
         "keywords": [
-            "piano",
-            "klavir",
-            "keys",
-            "keyboard",
-            "klavesy",
-            "pno",
-            "pno.",
-            "kbd",
-            "kbd.",
-            "kybd",
-            "synthesizer",
-            "synth brass",
-            "synth",
-            "syn. br.",
-            "syn br",
-            "syn.br",
-            "syn",
-            "organ",
-            "rhodes",
-            "piano conductor",
-            "piano vocal",
-            "pianino",
+            "french horn",
+            "lesni roh",
+            "horn",
+            "corno",
+            "f horn",
+            "waldhorn",
         ],
     },
     {
+        "canonical": "Tuba",
+        "family": "Tuba",
+        "num": None,
+        "keywords": ["tuba", "sousaphone", "heligon"],
+    },
+    {
+        "canonical": "Guitar",
         "family": "Guitar",
+        "num": "detect",
         "keywords": [
             "guitar",
             "kytara",
@@ -212,7 +245,31 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
+        "canonical": "Piano",
+        "family": "Piano",
+        "num": "detect",
+        "keywords": [
+            "piano",
+            "klavir",
+            "keys",
+            "keyboard",
+            "klavesy",
+            "pno",
+            "pno.",
+            "kbd",
+            "kbd.",
+            "kybd",
+            "organ",
+            "rhodes",
+            "piano conductor",
+            "piano vocal",
+            "pianino",
+        ],
+    },
+    {
+        "canonical": "Bass",
         "family": "Bass",
+        "num": "detect",
         "keywords": [
             "bass guitar",
             "baskytara",
@@ -230,7 +287,9 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
+        "canonical": "Drums",
         "family": "Drums",
+        "num": None,
         "keywords": [
             "drums",
             "bici",
@@ -250,7 +309,9 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
+        "canonical": "Lead Vocal",
         "family": "Main Vocals",
+        "num": None,
         "keywords": [
             "lead vocal",
             "vocal",
@@ -268,7 +329,9 @@ INSTRUMENT_FAMILIES = [
         ],
     },
     {
+        "canonical": "Back Vocals",
         "family": "Back Vocals",
+        "num": None,
         "keywords": [
             "back vocal",
             "back vocals",
@@ -286,60 +349,8 @@ INSTRUMENT_FAMILIES = [
 ]
 
 
-def extract_instrument_number_for_family(text: str, family_keywords: list[str]) -> Optional[str]:
+def extract_num_following_or_preceding(text: str, keywords: list[str]) -> Optional[str]:
     """Finds the number (1, 2, 3, 4, 1st, 2nd, etc.) directly following or preceding the instrument keyword."""
-    ordinal_map = {
-        "1st": "1",
-        "2nd": "2",
-        "3rd": "3",
-        "4th": "4",
-        "5th": "5",
-        "first": "1",
-        "second": "2",
-        "third": "3",
-        "fourth": "4",
-        "i": "1",
-        "ii": "2",
-        "iii": "3",
-        "iv": "4",
-        "v": "5",
-        "1": "1",
-        "2": "2",
-        "3": "3",
-        "4": "4",
-        "5": "5",
-    }
-
-    # 1. Check directly following: e.g. "alto sax 1", "trumpet 2", "tbn 3"
-    for kw in family_keywords:
-        pattern = (
-            r"(?:^|[^a-z0-9])"
-            + re.escape(kw)
-            + r"[\s\.\-_]*([1-5]|1st|2nd|3rd|4th|5th|i{1,3}|iv|v)(?:$|[^a-z0-9])"
-        )
-        m = re.search(pattern, text)
-        if m:
-            raw_num = m.group(1).lower()
-            return ordinal_map.get(raw_num, raw_num)
-
-    # 2. Check directly preceding: e.g. "1st alto sax", "2nd trumpet", "1. trubka", "i. pozoun"
-    for kw in family_keywords:
-        pattern = (
-            r"(?:^|[^a-z0-9])([1-5]|1st|2nd|3rd|4th|5th|i{1,3}|iv|v)[\s\.\-_]*(?:st|nd|rd|th|d|te)?[\s\.\-_]*"
-            + re.escape(kw)
-            + r"(?:$|[^a-z0-9])"
-        )
-        m = re.search(pattern, text)
-        if m:
-            raw_num = m.group(1).lower()
-            return ordinal_map.get(raw_num, raw_num)
-
-    return None
-
-
-def extract_numbers_and_ordinals(text: str) -> list[str]:
-    """Finds instrument numbers like '1', '2', '3', '1st', '2nd', '3rd', 'I', 'II', 'III', 'IV'."""
-    nums = []
     ordinal_map = {
         "1st": "1",
         "2nd": "2",
@@ -359,43 +370,64 @@ def extract_numbers_and_ordinals(text: str) -> list[str]:
         "iii": "3",
         "iv": "4",
         "v": "5",
+        "1": "1",
+        "2": "2",
+        "3": "3",
+        "4": "4",
+        "5": "5",
     }
 
-    words = re.findall(r"[a-z0-9]+", text.lower())
-    for w in words:
-        if w in ordinal_map:
-            nums.append(ordinal_map[w])
-        elif w.isdigit() and int(w) <= 10:
-            nums.append(str(int(w)))
-    return nums
+    # 1. Number following keyword: e.g. "alto sax 1", "trumpet 2", "tbn 3" (bare digit or ordinal)
+    for kw in keywords:
+        pattern = (
+            r"(?:^|[^a-z0-9])"
+            + re.escape(kw)
+            + r"[\s\.\-_]*([1-5]|1st|2nd|3rd|4th|5th|i{1,3}|iv|v)(?:$|[^a-z0-9])"
+        )
+        m = re.search(pattern, text)
+        if m:
+            raw = m.group(1).lower()
+            return ordinal_map.get(raw, raw)
+
+    # 2. Number preceding keyword: MUST be ordinal like "1st alto sax", "2nd trumpet", "1. trubka", "i. pozoun"
+    # Note: Bare digits before keyword (like "2 flute" or "2 bass") are PAGE NUMBERS within that part, not instrument indices!
+    for kw in keywords:
+        pattern = (
+            r"(?:^|[^a-z0-9])(1st|2nd|3rd|4th|5th|first|second|third|fourth|prvni|druhy|treti|ctvrty|[1-5]\.|i{1,3}\.|iv\.)[\s\.\-_]*"
+            + re.escape(kw)
+            + r"(?:$|[^a-z0-9])"
+        )
+        m = re.search(pattern, text)
+        if m:
+            raw = m.group(1).lower().rstrip(".")
+            return ordinal_map.get(raw, raw)
+
+    return None
 
 
-def match_instrument_name(
-    header_text: str, full_page_text: str, band_instruments: list[str]
-) -> tuple[str, Optional[str], float]:
+def detect_page_part_identity(text: str) -> tuple[str, str, Optional[str]]:
     """
-    Identifies whether the page text represents 'score', 'part', or 'other',
-    and matches it to the best band instrument.
-    Returns: (file_type: 'score'|'part'|'other', instrument_name: Optional[str], confidence: float)
+    Returns (part_key: str, family: str, num: Optional[str])
+    part_key is a unique string identifying the exact part in the PDF (e.g. 'Score', 'Flute', 'Alto Sax 1', 'Alto Sax 2', 'Bass Trombone').
     """
-    norm_header = normalize_text(header_text)
-    norm_full = normalize_text(full_page_text)
+    norm = normalize_text(text)
 
-    # 1. Check if multiple distinct instrument families appear on this single page -> FULL SCORE!
-    detected_families = set()
-    for fam in INSTRUMENT_FAMILIES:
-        for kw in fam["keywords"]:
+    # 1. Count distinct instrument families in text
+    families_present = set()
+    for rule in DETECTION_RULES:
+        for kw in rule["keywords"]:
             pattern = r"(^|[^a-z0-9])" + re.escape(kw) + r"($|[^a-z0-9])"
-            if re.search(pattern, norm_header) or re.search(pattern, norm_full[:600]):
-                detected_families.add(fam["family"])
+            if re.search(pattern, norm):
+                families_present.add(rule["family"])
                 break
 
-    if len(detected_families) >= 3:
-        return "score", None, 0.98
+    # If 3 or more distinct instrument families appear, it is a Full Score!
+    if len(families_present) >= 3:
+        return "Score", "Score", None
 
-    # 2. Check for explicit Score / Partitura keywords (unless it is piano conductor/vocal)
+    # Check explicit Score keywords (unless it's piano conductor/vocal)
     is_piano_conductor = any(
-        kw in norm_header
+        kw in norm
         for kw in [
             "piano conductor",
             "piano / conductor",
@@ -405,95 +437,98 @@ def match_instrument_name(
             "pno/cond",
         ]
     )
-
     if not is_piano_conductor:
         for kw in SCORE_KEYWORDS:
             pattern = r"(^|[^a-z0-9])" + re.escape(kw) + r"($|[^a-z0-9])"
-            if re.search(pattern, norm_header) or re.search(pattern, norm_full[:400]):
-                return "score", None, 0.95
+            if re.search(pattern, norm):
+                return "Score", "Score", None
 
-    # 3. Check direct exact match with band instruments
-    for inst_name in band_instruments:
-        norm_inst = normalize_text(inst_name)
-        pattern = r"(^|[^a-z0-9])" + re.escape(norm_inst) + r"($|[^a-z0-9])"
-        if re.search(pattern, norm_header):
-            return "part", inst_name, 1.0
-
-    # 4. Match by instrument families and adjacent number
-    for fam in INSTRUMENT_FAMILIES:
-        fam_matched = False
-        for kw in fam["keywords"]:
+    # 2. Match rules in priority order
+    for rule in DETECTION_RULES:
+        kw_matched = None
+        for kw in rule["keywords"]:
             pattern = r"(^|[^a-z0-9])" + re.escape(kw) + r"($|[^a-z0-9])"
-            if re.search(pattern, norm_header) or re.search(pattern, norm_full[:400]):
-                fam_matched = True
+            if re.search(pattern, norm):
+                kw_matched = kw
                 break
 
-        if fam_matched:
-            # Detect instrument index (e.g. 1 in "Alto Sax 1" or "2 Alto Sax 1")
-            inst_num_detected = extract_instrument_number_for_family(
-                norm_header, fam["keywords"]
-            )
-            if not inst_num_detected:
-                inst_num_detected = extract_instrument_number_for_family(
-                    norm_full[:400], fam["keywords"]
-                )
+        if kw_matched:
+            canonical = rule["canonical"]
+            family = rule["family"]
 
-            # Check if bass trombone
-            is_bass_tbn = fam["family"] == "Trombone" and (
-                "bass" in norm_header
-                or "basstrombone" in norm_header
-                or "basovy" in norm_header
-                or "b. tbn" in norm_header
-                or "b.tbn" in norm_header
-            )
+            if rule["num"] == "detect":
+                num = extract_num_following_or_preceding(norm, rule["keywords"])
+                part_key = f"{canonical} {num}" if num else canonical
+                return part_key, family, num
+            elif rule["num"] == "bass":
+                return canonical, family, "bass"
+            else:
+                return canonical, family, None
 
-            # Find candidate band instruments belonging to this family
-            candidates = []
-            for inst_name in band_instruments:
-                norm_inst = normalize_text(inst_name)
-                if any(
-                    re.search(r"(^|[^a-z0-9])" + re.escape(kw) + r"($|[^a-z0-9])", norm_inst)
-                    for kw in fam["keywords"]
-                ):
-                    inst_nums = extract_numbers_and_ordinals(norm_inst)
-                    inst_num = inst_nums[0] if inst_nums else None
-                    candidates.append({"name": inst_name, "num": inst_num, "norm": norm_inst})
+    return "Other", "Other", None
 
-            if candidates:
-                if is_bass_tbn:
-                    # Prefer "Basový pozoun" or highest numbered trombone / "Pozoun 4"
-                    bass_tbn_cand = next(
-                        (c for c in candidates if "bas" in c["norm"]), None
-                    )
-                    if bass_tbn_cand:
-                        return "part", bass_tbn_cand["name"], 0.95
-                    # Else highest number
-                    candidates.sort(
-                        key=lambda c: int(c["num"]) if c["num"] and c["num"].isdigit() else 0,
-                        reverse=True,
-                    )
-                    return "part", candidates[0]["name"], 0.9
 
-                if inst_num_detected:
-                    exact_num_match = next(
-                        (c for c in candidates if c["num"] == inst_num_detected), None
-                    )
-                    if exact_num_match:
-                        return "part", exact_num_match["name"], 0.95
+def map_part_to_band_instrument(
+    part_key: str, family: str, num: Optional[str], band_instruments: list[dict]
+) -> tuple[str, Optional[str], str]:
+    """
+    Maps detected intrinsic PDF part (part_key) to best match in user's band setup.
+    Returns: (file_type: 'score'|'part'|'other', instrument_name: Optional[str], title: str)
+    """
+    if part_key == "Score":
+        return "score", None, "Partitura"
+    if part_key == "Other":
+        return "other", None, "Neznámý oddíl"
 
-                no_num_candidate = next((c for c in candidates if c["num"] is None), None)
-                if no_num_candidate:
-                    return "part", no_num_candidate["name"], 0.85
-                return "part", candidates[0]["name"], 0.75
+    tracked_names = [b["name"] for b in band_instruments]
+    norm_pkey = normalize_text(part_key)
 
-    # 5. Check direct match in full page text
-    for inst_name in band_instruments:
-        norm_inst = normalize_text(inst_name)
-        pattern = r"(^|[^a-z0-9])" + re.escape(norm_inst) + r"($|[^a-z0-9])"
-        if re.search(pattern, norm_full[:400]):
-            return "part", inst_name, 0.9
+    # 1. Exact match with DB instrument name
+    for b_name in tracked_names:
+        if normalize_text(b_name) == norm_pkey:
+            return "part", b_name, f"Part: {b_name}"
 
-    return "other", None, 0.0
+    # 2. Family + Number match in DB
+    candidates = []
+    for b_name in tracked_names:
+        norm_b = normalize_text(b_name)
+        for rule in DETECTION_RULES:
+            if rule["family"] == family:
+                if any(kw in norm_b for kw in rule["keywords"]):
+                    b_num = extract_num_following_or_preceding(norm_b, rule["keywords"])
+                    candidates.append({"name": b_name, "num": b_num, "norm": norm_b})
+
+    if candidates:
+        if num == "bass":
+            bass_cand = next((c for c in candidates if "bas" in c["norm"]), None)
+            if bass_cand:
+                return "part", bass_cand["name"], f"Part: {bass_cand['name']}"
+            return "part", candidates[-1]["name"], f"Part: {candidates[-1]['name']}"
+
+        if num:
+            exact_c = next((c for c in candidates if c["num"] == num), None)
+            if exact_c:
+                return "part", exact_c["name"], f"Part: {exact_c['name']}"
+
+        # Fallback to single unnumbered candidate or first
+        no_num = next((c for c in candidates if c["num"] is None), None)
+        if no_num:
+            return "part", no_num["name"], f"Part: {no_num['name']}"
+
+    # 3. If not found in current DB setup, keep detected canonical name as a clean part!
+    return "part", part_key, f"Part: {part_key}"
+
+
+def match_instrument_name(
+    header_text: str, full_page_text: str, band_instruments: list[str]
+) -> tuple[str, Optional[str], float]:
+    """Compatibility wrapper for single file analysis."""
+    combined_text = f"{header_text}\n{full_page_text}"
+    pkey, fam, num = detect_page_part_identity(combined_text)
+
+    band_dicts = [{"name": name} for name in band_instruments]
+    ft, inst_name, _ = map_part_to_band_instrument(pkey, fam, num, band_dicts)
+    return ft, inst_name, 0.95 if ft != "other" else 0.0
 
 
 def segment_pdf(
@@ -503,7 +538,7 @@ def segment_pdf(
     existing_song_files: list[dict],
 ) -> list[dict]:
     """
-    Parses the PDF, inspects each page's header text, detects instrument/score transitions,
+    Parses the PDF, inspects each page's text, detects instrument/score transitions,
     and groups contiguous pages into clean part segments.
     """
     reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -514,72 +549,60 @@ def segment_pdf(
     tracked_inst_names = [
         inst["name"] for inst in band_instruments if inst.get("is_tracked", True)
     ]
-    all_band_inst_names = [inst["name"] for inst in band_instruments]
     existing_inst_files = {
         f.get("instrument_name") for f in existing_song_files if f.get("file_type") == "part"
     }
     has_existing_score = any(f.get("file_type") == "score" for f in existing_song_files)
 
-    # Step 1: Extract text and identify type on each page
+    # Step 1: Detect intrinsic part identity of each page
     page_infos = []
     for idx, page in enumerate(reader.pages):
         raw_text = page.extract_text() or ""
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
-        header_text = " | ".join(lines[:4]) if lines else ""
+        header_snippet = " | ".join(lines[:4]) if lines else ""
 
-        file_type, inst_name, confidence = match_instrument_name(
-            header_text, raw_text, all_band_inst_names
-        )
+        part_key, family, num = detect_page_part_identity(raw_text)
 
         page_infos.append(
             {
                 "page_num": idx + 1,  # 1-indexed
-                "header_text": header_text,
-                "file_type": file_type,
-                "instrument_name": inst_name,
-                "confidence": confidence,
+                "part_key": part_key,
+                "family": family,
+                "num": num,
+                "header_snippet": header_snippet[:120],
+                "raw_text": raw_text,
             }
         )
 
-    # Step 2: Group contiguous pages into segments
+    # Step 2: Group contiguous pages into segments based on part_key
     segments = []
     current_segment = None
 
     for p in page_infos:
-        is_new_part = False
-        if current_segment is None:
-            is_new_part = True
-        else:
-            curr_type = current_segment["file_type"]
-            curr_inst = current_segment["instrument_name"]
-
-            if p["file_type"] == "score":
-                if curr_type != "score":
-                    is_new_part = True
-            elif p["file_type"] == "part" and p["instrument_name"]:
-                if curr_type != "part" or curr_inst != p["instrument_name"]:
-                    is_new_part = True
-            elif p["file_type"] != curr_type:
-                is_new_part = True
+        is_new_part = (current_segment is None) or (p["part_key"] != current_segment["part_key"])
 
         if is_new_part:
             if current_segment:
                 segments.append(current_segment)
 
+            ft, inst_name, title = map_part_to_band_instrument(
+                p["part_key"], p["family"], p["num"], band_instruments
+            )
+
             current_segment = {
-                "file_type": p["file_type"],
-                "instrument_name": p["instrument_name"],
+                "part_key": p["part_key"],
+                "family": p["family"],
+                "num": p["num"],
+                "file_type": ft,
+                "instrument_name": inst_name,
+                "title": title,
                 "page_start": p["page_num"],
                 "page_end": p["page_num"],
-                "header_snippet": p["header_text"][:120],
-                "confidence": p["confidence"],
+                "header_snippet": p["header_snippet"],
+                "confidence": 0.95 if ft != "other" else 0.0,
             }
         else:
             current_segment["page_end"] = p["page_num"]
-            if current_segment["file_type"] == "other" and p["file_type"] != "other":
-                current_segment["file_type"] = p["file_type"]
-                current_segment["instrument_name"] = p["instrument_name"]
-                current_segment["confidence"] = p["confidence"]
 
     if current_segment:
         segments.append(current_segment)
@@ -597,7 +620,6 @@ def segment_pdf(
             seg["already_exists"] = has_existing_score
             seg["is_tracked"] = True
         elif seg_type == "part" and inst_name:
-            seg["title"] = f"Part: {inst_name}"
             is_tracked = inst_name in tracked_inst_names
             already_exists = inst_name in existing_inst_files
             seg["is_missing"] = is_tracked and not already_exists

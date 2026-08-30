@@ -1405,6 +1405,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       div.className = "glass-row";
       div.style = "justify-content: space-between; gap: 12px; padding: 10px 14px; align-items: center;";
 
+      let customOption = "";
+      const isKnown = instrumentsCache.some((i) => i.name === seg.instrument_name);
+      if (seg.file_type === "part" && seg.instrument_name && !isKnown) {
+        customOption = `<option value="part:${seg.instrument_name}" selected>Part: ${seg.instrument_name}</option>`;
+      }
+
       const partsOptions = instrumentsCache
         .map(
           (inst) =>
@@ -1443,7 +1449,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           <select style="background: rgba(0,0,0,0.4); color: white; border: 1px solid var(--glass-border); border-radius: 6px; padding: 5px 8px; font-size: 0.85rem; cursor: pointer;" onchange="window.updateSplitSegmentAssignment(${index}, this.value)">
             <option value="score" ${seg.file_type === "score" ? "selected" : ""}>Partitura</option>
             ${partsOptions}
-            <option value="other" ${seg.file_type === "other" ? "selected" : ""}>Jiné</option>
+            ${customOption}
+            <option value="other" ${seg.file_type === "other" && !customOption ? "selected" : ""}>Jiné</option>
           </select>
           <button type="button" class="btn btn-secondary" onclick="window.removeSplitSegment(${index})" title="Odebrat z výběru" style="padding: 5px 10px;">
             <i class="fa-solid fa-xmark"></i>

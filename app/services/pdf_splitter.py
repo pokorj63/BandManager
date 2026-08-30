@@ -8,12 +8,17 @@ from pypdf import PdfReader, PdfWriter
 
 
 def normalize_text(text: str) -> str:
-    """Normalizes text by lowercasing and stripping diacritics and excess whitespace."""
+    """Normalizes text by lowercasing and stripping diacritics, attached tempo glyphs, and excess whitespace."""
     if not text:
         return ""
     text = text.lower()
     text = unicodedata.normalize("NFD", text)
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    # Separate attached tempo glyphs like 'fluteq. = 68' -> 'flute q. = 68' or '1q. = 68' -> '1 q. = 68'
+    text = re.sub(r"([a-z0-9])([qeh]\s*[\.=])", r"\1 \2", text)
+    # Separate letter attached to digit (e.g. 'sax1' -> 'sax 1', '1a' -> '1 a')
+    text = re.sub(r"([a-z])([1-5])\b", r"\1 \2", text)
+    text = re.sub(r"\b([1-5])([a-z])", r"\1 \2", text)
     return " ".join(text.split())
 
 

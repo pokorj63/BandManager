@@ -643,8 +643,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
         editingEventId = null;
       } else {
-        const err = await res.json();
-        window.mirekAlert("Chyba při ukládání: " + JSON.stringify(err));
+        const err = await res.json().catch(() => ({}));
+        const errMsg = err.detail || (typeof err === "string" ? err : JSON.stringify(err));
+        window.mirekAlert("Chyba při ukládání: " + errMsg);
       }
     } catch (e) {
       console.error(e);

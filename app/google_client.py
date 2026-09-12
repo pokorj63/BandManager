@@ -94,6 +94,13 @@ def upload_file_to_drive(
         )
         .execute()
     )
+    try:
+        drv.permissions().create(
+            fileId=created["id"],
+            body={"role": "reader", "type": "anyone"},
+        ).execute()
+    except Exception as perm_err:
+        print(f"Warning: could not set permission on drive file: {perm_err}")
     return created
 
 

@@ -34,6 +34,13 @@ from app.google_client import (
 )
 
 TZ = "Europe/Prague"
+try:
+    import zoneinfo
+    PRAGUE_TZ = zoneinfo.ZoneInfo(TZ)
+except Exception:
+    import datetime as dt_mod
+    PRAGUE_TZ = dt_mod.timezone(dt_mod.timedelta(hours=2))
+
 router = APIRouter(prefix="/events", tags=["events"])
 
 
@@ -44,6 +51,7 @@ def build_calendar_times(event_date: date, time_start: time | None, time_end: ti
     - All-day events (time_start is None)
     - Timed events without end time (defaults to +2 hours)
     - Timed events ending past midnight (moves end date to next day)
+    - Generates RFC 3339 compliant ISO date-time with proper timezone offset (+02:00 / +01:00)
     """
     if time_start is None:
         return (
@@ -51,14 +59,14 @@ def build_calendar_times(event_date: date, time_start: time | None, time_end: ti
             {"date": (event_date + timedelta(days=1)).isoformat()},
         )
 
-    start_dt = datetime.combine(event_date, time_start)
+    start_dt = datetime.combine(event_date, time_start, tzinfo=PRAGUE_TZ)
     if time_end is None:
         end_dt = start_dt + timedelta(hours=2)
     else:
         if time_end <= time_start:
-            end_dt = datetime.combine(event_date + timedelta(days=1), time_end)
+            end_dt = datetime.combine(event_date + timedelta(days=1), time_end, tzinfo=PRAGUE_TZ)
         else:
-            end_dt = datetime.combine(event_date, time_end)
+            end_dt = datetime.combine(event_date, time_end, tzinfo=PRAGUE_TZ)
 
     start_dict = {"dateTime": start_dt.isoformat(), "timeZone": TZ}
     end_dict = {"dateTime": end_dt.isoformat(), "timeZone": TZ}
@@ -127,8 +135,6 @@ def create_event(payload: EventCreate, request: Request, db: Session = Depends(g
         internal_notes=payload.internal_notes,
     )
     db.add(ev)
-    db.commit()
-    db.refresh(ev)
 
     # 2) sync to Google
     token = require_token(request)
@@ -153,14 +159,22 @@ def create_event(payload: EventCreate, request: Request, db: Session = Depends(g
         "location": ev.location or "",
     }
 
-    created = cal.events().insert(calendarId=calendar_id, body=body).execute()
-    ev.calendar_event_id = created["id"]
-    ev.drive_folder_id = None
-
-    db.add(ev)
-    db.commit()
-    db.refresh(ev)
-    return ev
+    try:
+        created = cal.events().insert(calendarId=calendar_id, body=body).execute()
+        ev.calendar_event_id = created["id"]
+        ev.drive_folder_id = None
+        db.commit()
+        db.refresh(ev)
+        return ev
+    except Exception as e:
+        db.rollback()
+        print(f"Chyba při ukládání události do Google Kalendáře: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chyba při ukládání do Google Kalendáře: {str(e)}",
+        )
 
 
 @router.patch("/{event_id}", response_model=EventOut)
@@ -174,16 +188,12 @@ def update_event(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(ev, field, value)
 
-    db.add(ev)
-    db.commit()
-    db.refresh(ev)
-
     token = require_token(request)
     creds = get_credentials_from_session(token)
     cal = calendar_service(creds)
     calendar_id = os.getenv("BAND_CALENDAR_ID")
 
-    if calendar_id and ev.calendar_event_id:
+    if calendar_id:
         start_info, end_info = build_calendar_times(ev.date, ev.time_start, ev.time_end)
         body = {
             "summary": ev.title,
@@ -193,10 +203,30 @@ def update_event(
             "location": ev.location or "",
         }
 
-        cal.events().patch(
-            calendarId=calendar_id, eventId=ev.calendar_event_id, body=body
-        ).execute()
+        if ev.calendar_event_id:
+            try:
+                cal.events().patch(
+                    calendarId=calendar_id, eventId=ev.calendar_event_id, body=body
+                ).execute()
+            except Exception as patch_err:
+                print(f"Calendar patch error: {patch_err}")
+                err_str = str(patch_err)
+                if "404" in err_str or "notFound" in err_str:
+                    try:
+                        created = cal.events().insert(calendarId=calendar_id, body=body).execute()
+                        ev.calendar_event_id = created["id"]
+                    except Exception as ins_err:
+                        print(f"Re-create calendar event error: {ins_err}")
+        else:
+            try:
+                created = cal.events().insert(calendarId=calendar_id, body=body).execute()
+                ev.calendar_event_id = created["id"]
+            except Exception as ins_err:
+                print(f"Initial calendar event insert error during update: {ins_err}")
 
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
     return ev
 
 
@@ -338,46 +368,64 @@ def attach_playlist_to_calendar(
             print(f"Cleanup error (non-fatal): {cleanup_err}")
 
         # 4. Kalendář
-        if calendar_id and ev.calendar_event_id:
-            try:
-                cal_ev = (
-                    cal.events()
-                    .get(calendarId=calendar_id, eventId=ev.calendar_event_id)
-                    .execute()
-                )
-                attachments = cal_ev.get("attachments", [])
+        if calendar_id:
+            # Pokud událost dosud nemá calendar_event_id, vytvoříme ji v kalendáři, abychom k ní mohli přiložit soubor
+            if not ev.calendar_event_id:
+                try:
+                    start_info, end_info = build_calendar_times(ev.date, ev.time_start, ev.time_end)
+                    cal_body = {
+                        "summary": ev.title,
+                        "start": start_info,
+                        "end": end_info,
+                        "description": ev.public_description or "",
+                        "location": ev.location or "",
+                    }
+                    created_cal = cal.events().insert(calendarId=calendar_id, body=cal_body).execute()
+                    ev.calendar_event_id = created_cal["id"]
+                    db.commit()
+                except Exception as auto_cal_err:
+                    print(f"Auto-create calendar event error: {auto_cal_err}")
 
-                # Smazat staré playlisty z příloh (podle starých ID i obecně PDF playlistů)
-                new_attachments = []
-                for a in attachments:
-                    a_file_id = a.get("fileId")
-                    a_title = a.get("title", "")
-                    a_mime = a.get("mimeType", "").lower()
-
-                    if a_file_id and a_file_id in old_drive_ids:
-                        continue
-                    if "pdf" in a_mime and (a_title.startswith("Playlist") or a_file_id == created["id"]):
-                        continue
-                    new_attachments.append(a)
-
-                file_url = created.get("webViewLink") or created.get("webContentLink")
-                if file_url:
-                    new_attachments.append(
-                        {
-                            "fileId": created["id"],
-                            "fileUrl": file_url,
-                            "mimeType": "application/pdf",
-                            "title": file.filename or "Playlist.pdf",
-                        }
+            if ev.calendar_event_id:
+                try:
+                    cal_ev = (
+                        cal.events()
+                        .get(calendarId=calendar_id, eventId=ev.calendar_event_id)
+                        .execute()
                     )
-                    cal.events().patch(
-                        calendarId=calendar_id,
-                        eventId=ev.calendar_event_id,
-                        body={"attachments": new_attachments},
-                        supportsAttachments=True,
-                    ).execute()
-            except Exception as cal_err:
-                print(f"Calendar error (non-fatal): {cal_err}")
+                    attachments = cal_ev.get("attachments", [])
+
+                    # Smazat staré playlisty z příloh (podle starých ID i obecně PDF playlistů)
+                    new_attachments = []
+                    for a in attachments:
+                        a_file_id = a.get("fileId")
+                        a_title = a.get("title", "")
+                        a_mime = a.get("mimeType", "").lower()
+
+                        if a_file_id and a_file_id in old_drive_ids:
+                            continue
+                        if "pdf" in a_mime and (a_title.startswith("Playlist") or a_file_id == created["id"]):
+                            continue
+                        new_attachments.append(a)
+
+                    file_url = created.get("webViewLink") or created.get("webContentLink")
+                    if file_url:
+                        new_attachments.append(
+                            {
+                                "fileId": created["id"],
+                                "fileUrl": file_url,
+                                "mimeType": "application/pdf",
+                                "title": file.filename or f"Playlist - {ev.title}.pdf",
+                            }
+                        )
+                        cal.events().patch(
+                            calendarId=calendar_id,
+                            eventId=ev.calendar_event_id,
+                            body={"attachments": new_attachments},
+                            supportsAttachments=True,
+                        ).execute()
+                except Exception as cal_err:
+                    print(f"Calendar attachment error (non-fatal): {cal_err}")
 
         return {"status": "ok", "drive_id": created["id"]}
 
@@ -819,19 +867,33 @@ def parse_pdf_to_playlist_structure(pdf_bytes: bytes, db: Session) -> dict:
 
     lines = [line.strip() for line in text_lines if line.strip()]
 
+    song_regex = re.compile(r"^\s*(\d+)\.\s+(.*?)\s+\((.*?)\)(.*)$")
+    block_regex = re.compile(
+        r"^\s*(\d+\.?\s*(Blok|Block|Set|Sekce|Setlist|Polovina|Série)|(Blok|Block|Set|Sekce|Setlist|Přídavek|Přídavky|Encore)\s*\d*).*$",
+        re.IGNORECASE,
+    )
+
     playlist_title = "PLAYLIST"
     if lines:
-        first_line = lines[0]
-        if first_line.upper().startswith("PLAYLIST"):
-            playlist_title = first_line
-            playlist_title = re.sub(r"^PLAYLIST\s*[-:]?\s*", "", playlist_title, flags=re.IGNORECASE)
+        first_line = lines[0].strip()
+        # Pokud první řádek neodpovídá skladbě ani hlavičce bloku, jde o titulek playlistu
+        if not song_regex.match(first_line) and not block_regex.match(first_line):
             lines = lines[1:]
+            cleaned = re.sub(r"^PLAYLIST\s*[-:–—]?\s*", "", first_line, flags=re.IGNORECASE).strip()
+            if cleaned:
+                playlist_title = cleaned
+            elif first_line.upper() == "PLAYLIST":
+                # Pokud na prvním řádku bylo jen "PLAYLIST", zkontrolujeme, zda na druhém není podtitul / název
+                if lines and not song_regex.match(lines[0]) and not block_regex.match(lines[0]):
+                    playlist_title = lines[0].strip()
+                    lines = lines[1:]
+                else:
+                    playlist_title = "PLAYLIST"
+            else:
+                playlist_title = first_line
 
     blocks = []
     current_block = {"title": "1. Blok", "items": []}
-
-    song_regex = re.compile(r"^\s*(\d+)\.\s+(.*?)\s+\((.*?)\)(.*)$")
-    block_regex = re.compile(r"^\s*(\d+)\.\s*(Blok|Block|Set|Sekce|Setlist.*)$", re.IGNORECASE)
 
     for line in lines:
         song_match = song_regex.match(line)
